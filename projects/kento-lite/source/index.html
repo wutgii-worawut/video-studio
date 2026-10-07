@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>kento lite promo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mali:wght@600;700&display=block" rel="stylesheet">
+<style>
+  :root { --paper:#fff8ec; --ink:#2b2b2b; --peach:#ffb4a2; --mint:#a8e6cf; --butter:#ffe08a; --sky:#a0d2ff; --pink:#ff9eb5; --coral:#ff8a7a; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1080px; height:1920px; overflow:hidden; background:var(--paper); color:var(--ink); font-family:'Mali', sans-serif; }
+  #stage { position:absolute; left:0; top:0; width:1080px; height:1920px; overflow:hidden; background:var(--paper); transform-origin:0 0; }
+  #cam { position:absolute; inset:0; transform-origin:50% 50%; }
+  #scrub { position:fixed; left:12px; right:12px; bottom:12px; display:flex; gap:12px; align-items:center; font:600 14px/1 sans-serif; color:#333; z-index:9; }
+  #scrub input { flex:1; }
+  .render #scrub { display:none; }
+
+  .dots, .scene.solid { background-image:radial-gradient(#e8d9c2 4px, transparent 5px); background-size:60px 60px; }
+  .dots { position:absolute; inset:-120px; }
+  .scene { position:absolute; inset:0; opacity:0; }
+  .scene.solid { background-color:var(--paper); }         /* scenes that enter with wipe/circle cover the one below */
+  svg .o { stroke:var(--ink); stroke-width:8; stroke-linejoin:round; stroke-linecap:round; }
+  svg * { transform-box:fill-box; transform-origin:center; }
+  #s5-sky * { transform-box:view-box; transform-origin:0 0; }   /* sun rays use plain SVG rotate(a cx cy) */
+  .art { position:absolute; opacity:0; overflow:visible; }
+  .ln { position:absolute; left:0; right:0; text-align:center; white-space:nowrap; opacity:0; }
+  .lb { position:absolute; white-space:nowrap; opacity:0; text-align:center; }
+  .tx { display:inline-block; font-weight:700; line-height:1.3;
+        text-shadow: -5px -5px 0 var(--paper), 5px -5px 0 var(--paper), -5px 5px 0 var(--paper), 5px 5px 0 var(--paper),
+                     0 -6px 0 var(--paper), 0 6px 0 var(--paper), -6px 0 0 var(--paper), 6px 0 0 var(--paper), 8px 9px 0 #00000022; }
+  .pill { display:inline-block; background:var(--butter); border:6px solid var(--ink); border-radius:999px; padding:6px 34px 12px; box-shadow:7px 8px 0 #00000026; }
+  .pill.white { background:#fff; } .pill.mint { background:var(--mint); } .pill.pink { background:var(--pink); } .pill.sky { background:var(--sky); }
+  .pill .tx, .card .tx { text-shadow:none; }
+  /* real product photos sit in doodle sticker frames: white border, ink outline, tape on top */
+  .photo { position:absolute; inset:0; background:#fff; border:7px solid var(--ink); border-radius:26px; padding:12px; box-shadow:10px 12px 0 #00000026; }
+  .photo img { width:100%; height:100%; display:block; border-radius:14px; object-fit:cover; }
+  .photo::before { content:''; position:absolute; left:50%; top:-26px; width:150px; height:46px; margin-left:-75px; background:#ffe08acc; transform:rotate(-4deg); }
+  .card { position:absolute; inset:0; background:#fff; border:7px solid var(--ink); border-radius:34px; box-shadow:10px 12px 0 #00000026; }
+  .menu .tx { font-size:34px; text-shadow:none; padding:0 8px; }   /* on a white card: no paper outline, so the highlight shows */
+</style>
+<script src="../../../lib/fx.js"></script>
+</head>
+<body>
+<script src="../../../styles/cute-doodle/boil.js"></script>  <!-- line boil: .boil drawings, .boilT text -->
+<div id="stage">
+<div id="cam">
+  <div class="dots" id="dots"></div>
+  <div class="scene" id="s1"></div>
+  <div class="scene" id="s2"></div>
+  <div class="scene" id="s3"></div>
+  <div class="scene solid" id="s4"></div>
+  <div class="scene solid" id="s5"></div>
+  <div class="scene" id="s6"></div>
+  <div class="scene" id="s7"></div>
+  <div class="scene solid" id="s8"></div>
+</div>
+</div>
+<div id="scrub"><input type="range" min="0" max="66" step="0.0333" value="0"><span>0.00s</span></div>
+
+<script>
+  // KENTO LITE · 60 s · cute-doodle. Every frame is a pure function of t. Product facts come only from brand/brand.md.
+  const $ = (s) => document.querySelector(s);
+  const { ease, clamp } = FX;
+  window.DUR = 66;                                          // voiceover is 64.5 s
+  window.STILLS = [6.5, 11.5, 24.5, 34.5, 42, 50.5, 58.5, 64];
+  const DUR = window.DUR;
+
+  // ---- building blocks --------------------------------------------------------------------------
+  const add = (scene, html) => { $(scene).insertAdjacentHTML('beforeend', html); };
+  const line = (id, top, text, size, style = '') => `<div class="ln" id="${id}" style="top:${top}px"><span class="tx boilT" style="font-size:${size}px;${style}">${text}</span></div>`;
+  const label = (id, x, y, w, text, size = 34, kind = '') => `<div class="lb" id="${id}" style="left:${x}px;top:${y}px;width:${w}px"><span class="pill ${kind}"><span class="tx" style="font-size:${size}px">${text}</span></span></div>`;
+  const photo = (id, src, x, y, w, h, tilt = 0, fit = 'cover') => `<div class="art" id="${id}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">
+      <div class="photo" style="transform:rotate(${tilt}deg)"><img src="img/${src}.jpg" style="object-fit:${fit}"></div></div>`;
+  const svg = (id, x, y, w, h, vb, inner) => `<svg class="art boil" id="${id}" viewBox="${vb}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">${inner}</svg>`;
+  const STAR = 'M0 -24 Q4 -4 24 0 Q4 4 0 24 Q-4 4 -24 0 Q-4 -4 0 -24 Z';
+
+  // Mochi (same construction as projects/mochi-monday): swappable eyes/mouth, optional waving arm and second face
+  const EYES = {
+    sleep:   '<path class="o" d="M140 242 Q160 256 180 242 M220 242 Q240 256 260 242" fill="none"/>',
+    tired:   '<path class="o" d="M143 234 H177 M223 234 H257" fill="none"/><path d="M146 236 A14 13 0 0 0 174 236 Z M226 236 A14 13 0 0 0 254 236 Z" fill="#2b2b2b"/>',
+    sparkle: '<circle cx="160" cy="236" r="23" fill="#2b2b2b"/><circle cx="240" cy="236" r="23" fill="#2b2b2b"/><circle cx="168" cy="227" r="8" fill="#fff"/><circle cx="153" cy="245" r="4" fill="#fff"/><circle cx="248" cy="227" r="8" fill="#fff"/><circle cx="233" cy="245" r="4" fill="#fff"/>',
+    happy:   '<path class="o" d="M142 246 Q160 224 178 246 M222 246 Q240 224 258 246" fill="none"/>',
+  };
+  const MOUTH = {
+    sleep: '<path class="o" d="M192 276 Q200 284 208 276" fill="none" stroke-width="6"/>',
+    w:     '<path class="o" d="M184 268 Q192 280 200 268 Q208 280 216 268" fill="none" stroke-width="6"/>',
+    open:  '<path class="o" d="M180 264 Q200 306 220 264 Z" fill="#ff7a8a" stroke-width="6"/>',
+    wobble:'<path class="o" d="M180 276 Q190 266 200 276 Q210 286 220 276" fill="none" stroke-width="6"/>',
+  };
+  function mochi(eyes, mouth, { wave = false, alt = null, id = '' } = {}) {
+    const paw = (x, y) => `<ellipse class="o" cx="${x}" cy="${y}" rx="28" ry="19" fill="#fffdf8"/>`;
+    const arm = `<g id="${id}-wave" style="transform-origin:0% 100%"><path class="o" d="M290 300 C 316 276, 330 250, 334 222" fill="none" stroke-width="34"/>
+      <path d="M290 300 C 316 276, 330 250, 334 222" fill="none" stroke="#fffdf8" stroke-width="19" stroke-linecap="round"/><ellipse class="o" cx="336" cy="214" rx="24" ry="22" fill="#fffdf8"/></g>`;
+    return `<path class="o" d="M310 320 C 382 312, 392 236, 350 214" fill="none" stroke-width="30"/><path d="M310 320 C 382 312, 392 236, 350 214" fill="none" stroke="#fffdf8" stroke-width="15" stroke-linecap="round"/>
+      <path class="o" d="M112 196 L118 106 L182 158 Z M288 196 L282 106 L218 158 Z" fill="#fffdf8"/><path d="M126 170 L128 132 L156 156 Z M274 170 L272 132 L244 156 Z" fill="#ff9eb5"/>
+      <path class="o" d="M80 330 C 58 228, 110 148, 200 148 C 290 148, 342 228, 320 330 C 300 372, 100 372, 80 330 Z" fill="#fffdf8"/>
+      <ellipse cx="128" cy="272" rx="20" ry="12" fill="#ff9eb5" opacity=".85"/><ellipse cx="272" cy="272" rx="20" ry="12" fill="#ff9eb5" opacity=".85"/>
+      <path class="o" d="M96 258 L60 250 M96 270 L58 274 M304 258 L340 250 M304 270 L342 274" fill="none" stroke-width="5"/>
+      <g id="${id}-face">${EYES[eyes]}${MOUTH[mouth]}</g>${alt ? `<g id="${id}-face2" opacity="0">${EYES[alt.eyes]}${MOUTH[alt.mouth]}</g>` : ''}
+      ${paw(150, 340)}${wave ? arm : paw(250, 340)}`;
+  }
+
+  // ---- 1 · problem (0–5 s) ------------------------------------------------------------------------
+  const EGG = 'M80 10 C 125 10, 150 90, 150 130 C 150 180, 120 210, 80 210 C 40 210, 10 180, 10 130 C 10 90, 35 10, 80 10 Z';
+  add('#s1', line('s1-a', 220, 'ต้มไข่ทีไร...', 92));
+  add('#s1', line('s1-b', 350, 'ไม่เคยได้ดั่งใจ!', 110, 'color:var(--coral)'));
+  add('#s1', svg('s1-e0', 140, 590, 160, 220, '0 0 160 220', `<path class="o" d="${EGG}" fill="#fff6e6"/><path class="o" d="M30 110 L 55 95 L 70 120 L 92 98 L 110 122 L 130 105" fill="none" stroke-width="6"/>`));
+  add('#s1', svg('s1-e1', 460, 590, 160, 220, '0 0 160 220', `<path class="o" d="${EGG}" fill="#fff"/><path class="o" d="M50 120 C 50 90, 110 90, 110 120 C 112 150, 96 200, 84 214 C 78 190, 52 160, 50 120 Z" fill="#ffb347" stroke-width="6"/>`));
+  add('#s1', svg('s1-e2', 780, 590, 160, 220, '0 0 160 220', `<path class="o" d="${EGG}" fill="#fff"/><circle cx="80" cy="128" r="38" fill="#e6d48a" stroke="#8ea36b" stroke-width="10"/>`));
+  add('#s1', label('s1-l0', 120, 840, 200, 'แตก!', 38, 'white'));
+  add('#s1', label('s1-l1', 440, 840, 200, 'ดิบไป!', 38, 'white'));
+  add('#s1', label('s1-l2', 760, 840, 200, 'แข็งไป!', 38, 'white'));
+  add('#s1', svg('s1-mochi', 330, 1000, 420, 420, '0 0 400 400', `<g id="m1">${mochi('tired', 'wobble')}</g><path id="sweat" class="o" d="M330 150 C 345 175, 350 190, 338 200 C 324 206, 316 190, 330 150 Z" fill="#a0d2ff" stroke-width="5"/>`));
+
+  // ---- 2 · reveal (5–10 s) ------------------------------------------------------------------------
+  add('#s2', line('s2-a', 200, 'ต้องมีตัวช่วย!', 90));
+  add('#s2', photo('s2-hero', 'hero', 150, 340, 780, 800, -2));
+  add('#s2', svg('s2-spark', 60, 300, 960, 900, '0 0 960 900', [[60, 80, 1.6], [900, 120, 1.2], [930, 760, 1.5], [40, 700, 1.1]]
+    .map(([x, y, s], i) => `<g transform="translate(${x} ${y}) scale(${s})"><path id="sp${i}" class="o" d="${STAR}" fill="#ffe08a" stroke-width="5"/></g>`).join('')));
+  add('#s2', `<div class="ln" id="s2-name" style="top:1180px"><span class="pill"><span class="tx" style="font-size:80px">KENTO LITE</span></span></div>`);
+  add('#s2', line('s2-sub', 1340, 'เครื่องต้มไข่อัตโนมัติ 12 ฟังก์ชัน', 48));
+  add('#s2', svg('s2-mochi', -10, 1070, 250, 250, '0 0 400 400', `<g id="m2">${mochi('sparkle', 'open', { wave: true, id: 'm2' })}</g>`));
+
+  // ---- 3 · egg guide (10–20 s) --------------------------------------------------------------------
+  const EGGS = [['ไข่ลวก', '3 นาที'], ['ยางมะตูม', '5 นาที'], ['ไข่เกือบสุก', '6 นาที'], ['สุกพอดี', '7 นาที'], ['สุกมาก', '10 นาที'], ['ไข่ออนเซ็น', '15–20 นาที']];
+  const EGG_AT = (i) => [15.7, 17.05, 18.6, 20.1, 21.7, 23.6][i];   // when the voice says each egg
+  add('#s3', line('s3-a', 200, 'จับเวลาเป๊ะ', 92));
+  add('#s3', line('s3-b', 322, 'ได้ไข่แบบที่ชอบ', 60, 'color:var(--coral)'));
+  EGGS.forEach(([name, time], i) => {
+    const x = 75 + (i % 3) * 325, y = i < 3 ? 420 : 975;   // row gap leaves air between top labels and bottom photos
+    add('#s3', photo(`s3-c${i}`, `egg${i}`, x, y, 280, 370, (i % 2 ? 2 : -2), 'contain'));
+    add('#s3', `<div class="lb" id="s3-l${i}" style="left:${x - 10}px;top:${y + 378}px;width:300px"><span class="pill ${['white', 'mint', 'white', 'mint', 'white', 'mint'][i]}" style="padding:4px 22px 10px">
+      <span class="tx" style="font-size:32px">${name}</span><br><span class="tx" style="font-size:30px;color:#c2553f">${time}</span></span></div>`);
+  });
+
+  // ---- 4 · 12 modes (20–30 s) ---------------------------------------------------------------------
+  const MODES = ['L1 ไข่ต้มสุกพอดี', 'L2 ไข่ยางมะตูม', 'L3 ไข่ออนเซ็น', 'L4 ไข่ตุ๋น', 'L5 ไข่ต้มใบชา', 'L6 โยเกิร์ต นมเปรี้ยว',
+                 'L7 นึ่งอาหาร', 'L8 นึ่งข้าว', 'L9 ธัญพืช', 'L10 นึ่ง&ต้ม', 'L11 ซาลาเปา', 'L12 คงความร้อน'];
+  const DISHES = [[3, 'food3', 'ไข่ตุ๋น', 29.9], [7, 'food7', 'นึ่งข้าว', 32.5], [10, 'food6', 'ซาลาเปา', 33.3], [8, 'food8', 'ธัญพืช', 34.0]];
+  const DISH_AT = (k) => DISHES[k][3];
+  const SPOKEN = [[3, 29.9], [4, 30.8], [5, 31.8], [7, 32.5], [10, 33.3], [8, 34.0], [11, 35.7]];   // [mode line, when the voice says it]
+  add('#s4', line('s4-a', 200, '12 โหมด ทำได้มากกว่าไข่', 66));
+  add('#s4', `<div class="art" id="s4-board" style="left:70px;top:300px;width:940px;height:560px"><div class="card boil"></div></div>`);
+  MODES.forEach((m, i) => add('#s4', `<div class="lb menu" id="s4-m${i}" style="left:${120 + (i % 2) * 440}px;top:${330 + Math.floor(i / 2) * 84}px;text-align:left"><span class="tx">${m}</span></div>`));
+  DISHES.forEach(([, src, name], k) => {
+    const x = 90 + (k % 2) * 470, y = k < 2 ? 900 : 1200;
+    add('#s4', photo(`s4-d${k}`, src, x, y, 430, 270, (k % 2 ? -2 : 2)));
+    add('#s4', label(`s4-dl${k}`, x + 65, y + 200, 300, name, 34, 'white'));
+  });
+
+  // ---- 5 · 24 h timer (30–38 s) -------------------------------------------------------------------
+  add('#s5', line('s5-a', 200, 'ตั้งเวลาล่วงหน้า 24 ชม.', 66));
+  add('#s5', line('s5-b', 310, 'ตื่นมาพร้อมทาน นอนต่อได้สบาย', 46, 'color:#c2553f'));
+  add('#s5', svg('s5-clock', 370, 410, 340, 340, '0 0 300 300', `<circle class="o" cx="150" cy="150" r="130" fill="#ffe08a"/><circle class="o" cx="150" cy="150" r="104" fill="#fff"/>
+    <path class="o" d="M150 58 V72 M150 228 V242 M58 150 H72 M228 150 H242" fill="none" stroke-width="7"/>
+    <path id="hh" class="o" d="M150 150 V100" fill="none" stroke-width="12" style="transform-origin:150px 150px;transform-box:view-box"/>
+    <path id="mh" class="o" d="M150 150 V72" fill="none" stroke-width="8" style="transform-origin:150px 150px;transform-box:view-box"/><circle cx="150" cy="150" r="10" fill="#2b2b2b"/>`));
+  add('#s5', svg('s5-sky', 760, 420, 200, 200, '0 0 200 200', `<g id="moon"><path class="o" d="M120 30 C 60 40, 50 140, 120 170 C 60 180, 20 120, 40 70 C 55 40, 90 25, 120 30 Z" fill="#fff6c9" stroke-width="6"/></g>
+    <g id="sun" opacity="0"><circle class="o" cx="100" cy="100" r="44" fill="#ffe08a" stroke-width="6"/>${Array.from({ length: 8 }, (_, k) => `<path class="o" d="M100 30 V12" stroke-width="6" transform="rotate(${k * 45} 100 100)"/>`).join('')}</g>`));
+  add('#s5', svg('s5-bed', 120, 880, 840, 470, '0 0 900 500', `<rect class="o" x="30" y="40" width="150" height="420" rx="46" fill="#ffb4a2"/>
+    <rect class="o" x="30" y="250" width="840" height="200" rx="40" fill="#ffb4a2"/><ellipse class="o" cx="300" cy="230" rx="130" ry="60" fill="#fff"/>
+    <g transform="translate(160 20) scale(0.8)" id="m5wrap">${mochi('sleep', 'sleep', { alt: { eyes: 'sparkle', mouth: 'open' }, id: 'm5' })}</g>
+    <g id="blanket5" style="transform-origin:50% 100%"><path class="o" d="M175 300 C 320 268, 620 282, 868 300 L 872 450 L 170 450 Z" fill="#a0d2ff"/>
+    <path d="M250 350 C 420 330, 640 340, 840 354 M240 400 C 420 384, 640 392, 845 404" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round"/></g>`));
+  add('#s5', photo('s5-meal', 'lifestyle-bowl', 600, 830, 380, 430, 4));
+  add('#s5', label('s5-ready', 600, 1280, 380, 'พร้อมทาน!', 46, 'mint'));
+  add('#s5', `<span class="ln" id="s5-z" style="top:0;left:0;right:auto;font-weight:700;font-size:70px;color:#7aa7d9">z z</span>`);
+
+  // ---- 6 · easy to use (38–46 s) ------------------------------------------------------------------
+  const ICONS = [
+    `<path class="o" d="M40 80 V30 C 40 20, 56 20, 56 30 V60 M56 52 C 56 44, 72 44, 72 52 V62 M72 56 C 72 48, 86 48, 86 56 V88 C 86 100, 74 108, 60 108 H52 C 40 108, 30 98, 26 86 L 20 70 C 18 62, 30 58, 36 66 L 40 74" fill="#ffe0c2" stroke-width="5"/><path d="M30 20 A 22 22 0 0 1 66 20" fill="none" stroke="#ff8a7a" stroke-width="5" stroke-linecap="round"/>`,
+    `<path class="o" d="M48 70 V20 C 48 8, 72 8, 72 20 V70 C 86 78, 86 104, 60 108 C 34 104, 34 78, 48 70 Z" fill="#fff" stroke-width="5"/><path d="M60 92 V36" stroke="#ff8a7a" stroke-width="10" stroke-linecap="round"/><circle cx="60" cy="92" r="12" fill="#ff8a7a"/>`,
+    `<path class="o" d="M60 14 C 80 44, 94 60, 94 78 C 94 98, 78 110, 60 110 C 42 110, 26 98, 26 78 C 26 60, 40 44, 60 14 Z" fill="#a0d2ff" stroke-width="5"/><path d="M44 80 C 44 92, 52 98, 60 98" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>`,
+    `${[[30, 40], [60, 40], [90, 40], [30, 82], [60, 82], [90, 82]].map(([x, y]) => `<ellipse class="o" cx="${x}" cy="${y}" rx="14" ry="18" fill="#fff6e6" stroke-width="4"/>`).join('')}`,
+  ];
+  const FEATS = [['ปุ่มสัมผัส', 'ปุ่มเดียว'], ['คุมอุณหภูมิ', 'แม่นยำ'], ['เคลือบกันติด', 'เช็ดง่าย'], ['ต้มไข่ครั้งละ', '6 ฟอง']];
+  const FEAT_AT = (i) => [44.3, 45.5, 46.85, 48.3][i];
+  add('#s6', line('s6-a', 200, 'ใช้ง่าย ไม่ยุ่งยาก', 86));
+  FEATS.forEach(([a, b], i) => {
+    const x = 75 + (i % 2) * 470, y = i < 2 ? 340 : 620;
+    add('#s6', `<div class="art" id="s6-f${i}" style="left:${x}px;top:${y}px;width:430px;height:250px"><div class="card boil"></div>
+      <svg viewBox="0 0 120 120" class="boil" style="position:absolute;left:28px;top:65px;width:120px;height:120px">${ICONS[i]}</svg>
+      <div style="position:absolute;left:155px;top:62px;text-align:left"><span class="tx" style="font-size:36px">${a}</span><br><span class="tx" style="font-size:36px;color:#c2553f">${b}</span></div></div>`);
+  });
+  add('#s6', `<div class="ln" id="s6-gift" style="top:930px"><span class="pill pink"><span class="tx" style="font-size:52px">ของแถมฟรี 3 ชิ้น</span></span></div>`);
+  [['gift-bowl', 'ถ้วยสแตนเลส'], ['gift-rack', 'ถาดวางไข่'], ['gift-basket', 'ตะกร้านึ่ง']].forEach(([src, name], k) => {
+    const x = 60 + k * 325;
+    add('#s6', photo(`s6-g${k}`, src, x, 1070, 280, 230, (k - 1) * 3, 'contain'));
+    add('#s6', label(`s6-gl${k}`, x - 10, 1330, 300, name, 34, 'white'));
+  });
+
+  // ---- 7 · peace of mind (46–53 s) ----------------------------------------------------------------
+  add('#s7', line('s7-a', 200, 'ซื้อแล้วสบายใจ', 86));
+  add('#s7', photo('s7-product', 'product', 290, 320, 500, 600, 0, 'contain'));
+  add('#s7', svg('s7-dims', 0, 300, 1080, 760, '0 0 1080 760', `
+    <path id="dimV" class="o" d="M230 30 V 620 M214 46 L230 30 L246 46 M214 604 L230 620 L246 604" fill="none" stroke-width="6"/>
+    <path id="dimH" class="o" d="M290 680 H 790 M306 664 L290 680 L306 696 M774 664 L790 680 L774 696" fill="none" stroke-width="6"/>`));
+  add('#s7', label('s7-h', 60, 560, 160, '215 มม.', 36, 'white'));
+  add('#s7', `<div class="ln" id="s7-w" style="top:1000px"><span class="pill white"><span class="tx" style="font-size:36px">150 มม.</span></span></div>`);
+  const BADGES = [['ประกัน 1 ปี', 'เสียเปลี่ยนใหม่ฟรี', 'mint'], ['คืนสินค้าได้', 'ภายใน 15 วัน', 'sky'], ['ของแท้', '100%', 'pink'], ['Hot Sale', '60000+', '']];
+  const BADGE_AT = (i) => [52.5, 55.8, 57.8, 58.6][i];
+  BADGES.forEach(([a, b, kind], i) => {
+    const x = 70 + (i % 2) * 480, y = i < 2 ? 1110 : 1290;
+    add('#s7', `<div class="art" id="s7-b${i}" style="left:${x}px;top:${y}px;width:450px;height:160px"><div class="card boil" style="background:${['#a8e6cf', '#a0d2ff', '#ff9eb5', '#ffe08a'][i]}"></div>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span class="tx" style="font-size:40px">${a}</span><span class="tx" style="font-size:34px">${b}</span></div></div>`);
+  });
+
+  // ---- 8 · call to action (53–60 s) ---------------------------------------------------------------
+  add('#s8', line('s8-a', 200, 'KENTO LITE', 110, 'color:var(--coral)'));
+  add('#s8', line('s8-b', 355, 'ต้มไข่ได้ดั่งใจ ทุกเช้า', 58));
+  add('#s8', photo('s8-photo', 'lifestyle-steam', 240, 460, 600, 700, 2));
+  add('#s8', `<div class="ln" id="s8-cta" style="top:1230px"><span class="pill" style="padding:12px 50px 18px"><span class="tx" style="font-size:62px">ลิงก์อยู่หน้าโปรไฟล์</span></span></div>`);
+  add('#s8', svg('s8-mochi', 10, 380, 280, 280, '0 0 400 400', `<g id="m8">${mochi('happy', 'w', { wave: true, id: 'm8' })}</g>`));
+  add('#s8', `<div id="confetti" style="position:absolute;inset:0;pointer-events:none"></div>`);
+
+  // ---- timeline (synced to brand/voice.mp3) -------------------------------------------------------
+  // Voice sections: 1 problem 0 · 2 reveal 7.7 · 3 eggs 13.1 · 4 modes 26.8 · 5 timer 36.8 · 6 easy 43.5 · 7 trust 52.3 · 8 CTA 59.4
+  // [scene, in, out, {enter, exit}] — transitions vary scene to scene
+  const SCENES = [
+    ['#s1', -1, 7.3, { exit: 'whip' }],
+    ['#s2', 7.3, 12.6, { enter: 'whip', exit: 'zoom' }],
+    ['#s3', 12.6, 26.2, { enter: 'zoom' }],
+    ['#s4', 26.4, 36.1, { enter: 'wipe', exit: 'hold' }],
+    ['#s5', 36.3, 43.0, { enter: 'circle', exit: 'zoom' }],
+    ['#s6', 43.1, 51.9, { enter: 'zoom', exit: 'whip' }],
+    ['#s7', 51.9, 58.9, { enter: 'whip', exit: 'hold' }],
+    ['#s8', 59.0, 99, { enter: 'circle', dur: 0.6 }],
+  ];
+  const WHIP_OUT = [['#s1', 7.3], ['#s6', 51.9]];          // fx.js 'whip' exits leave the scene opaque off-screen
+  const WAKE = 39.9, DAWN = 39.3, SPIN = [37.3, 2.4];       // scene 5: the voice says "ตื่นมาพร้อมทาน" at 39.97
+  const pop = (sel, at, o = {}) => [sel, at, { scale: 0.3, ease: 'back', sfx: 'pop', vol: 0.5, ...o }];
+  const ITEMS = [
+    ['#s1-a', 0.1, { dur: 0.2 }], ['#s1-b', 1.4, { scale: 1.8, ease: 'spring', dur: 0.8, sfx: 'impact', vol: 0.8 }],
+    pop('#s1-e1', 3.9), ['#s1-l1', 4.05, { y: 40, ease: 'back' }],          // "ไม่ดิบไป"
+    pop('#s1-e2', 4.9), ['#s1-l2', 5.05, { y: 40, ease: 'back' }],          // "ก็แข็งไป"
+    pop('#s1-e0', 6.0), ['#s1-l0', 6.15, { y: 40, ease: 'back' }],          // "บางทีแตกอีก"
+    ['#s1-mochi', 0.4, { y: 260, ease: 'back', dur: 0.7, sfx: 'whoosh', vol: 0.5 }],
+
+    ['#s2-a', 7.65, { dur: 0.2, sfx: 'whoosh', vol: 0.6 }],                 // "ต้องมีตัวช่วยแล้ว"
+    ['#s2-hero', 8.9, { scale: 0.2, r: -14, ease: 'spring', dur: 1.0, sfx: 'impact', vol: 0.6 }],
+    ['#s2-name', 9.15, { y: 80, ease: 'back', sfx: 'pop' }],               // "Kento Lite"
+    ['#s2-spark', 9.4, { dur: 0.3, sfx: 'ding', vol: 0.45 }],
+    ['#s2-sub', 10.3, { dur: 0.2 }],                                        // "เครื่องต้มไข่อัตโนมัติ 12 ฟังก์ชัน"
+    ['#s2-mochi', 11.2, { x: -200, ease: 'back', sfx: 'whoosh', vol: 0.4 }],
+
+    ['#s3-a', 13.05, { dur: 0.2 }], ['#s3-b', 14.2, { y: 40, ease: 'back' }],
+    ...EGGS.flatMap((_, i) => [pop(`#s3-c${i}`, EGG_AT(i) - 0.1, { sfx: 'tick', vol: 0.9 }), ['#s3-l' + i, EGG_AT(i) + 0.1, { y: 40, ease: 'back', sfx: 'pop', vol: 0.35 }]]),
+
+    ['#s4-a', 26.8, { dur: 0.2 }],                                          // "แต่ไม่ได้มีแค่ต้มไข่นะ"
+    ['#s4-board', 28.3, { y: 120, ease: 'back', sfx: 'whoosh', vol: 0.5 }], // "มีถึง 12 โหมด"
+    ...MODES.map((_, i) => ['#s4-m' + i, 28.5 + i * 0.1, { x: -40, dur: 0.4, sfx: i % 3 ? undefined : 'tick', vol: 0.6 }]),
+    ...DISHES.flatMap((_, k) => [pop(`#s4-d${k}`, DISH_AT(k) - 0.1, { vol: 0.45 }), ['#s4-dl' + k, DISH_AT(k) + 0.05, { y: 30, ease: 'back' }]]),
+
+    ['#s5-a', 36.8, { dur: 0.2 }],                                          // "ตั้งเวลาล่วงหน้าได้ 24 ชั่วโมง"
+    pop('#s5-clock', 37.0, { sfx: 'pop' }), ['#s5-sky', 37.2, { y: -60, ease: 'back' }],
+    ['#s5-bed', 36.7, { y: 200, ease: 'back', dur: 0.7 }],
+    ['#s5-b', 39.97, { y: 30, ease: 'back' }],                              // "ตื่นมาพร้อมทาน นอนต่อได้สบาย"
+    ['#s5-meal', 40.3, { scale: 0.2, r: 18, ease: 'spring', dur: 0.9, sfx: 'ding', vol: 0.6 }],
+    ['#s5-ready', 40.8, { y: 40, ease: 'back', sfx: 'pop' }],
+
+    ['#s6-a', 43.5, { dur: 0.2 }],                                          // "ใช้ง่าย"
+    ...FEATS.map((_, i) => pop(`#s6-f${i}`, FEAT_AT(i) - 0.1)),
+    ['#s6-gift', 50.2, { scale: 0.3, ease: 'spring', dur: 0.8, sfx: 'ding', vol: 0.5 }],   // "แถมฟรีอุปกรณ์อีก 3 ชิ้น"
+    ...[0, 1, 2].flatMap((k) => [pop(`#s6-g${k}`, 50.7 + k * 0.35), ['#s6-gl' + k, 50.85 + k * 0.35, { y: 30, ease: 'back' }]]),
+
+    ['#s7-a', 52.1, { dur: 0.2 }],
+    ['#s7-product', 52.2, { y: 200, ease: 'back', dur: 0.7, sfx: 'whoosh', vol: 0.5 }],
+    ['#s7-dims', 53.4, { dur: 0.1 }], ['#s7-h', 53.8, { x: -40, ease: 'back', sfx: 'pop', vol: 0.4 }], ['#s7-w', 54.1, { y: 30, ease: 'back', sfx: 'pop', vol: 0.4 }],
+    ...BADGES.map((_, i) => pop(`#s7-b${i}`, BADGE_AT(i), { sfx: i === 3 ? 'ding' : 'pop', vol: 0.5 })),
+
+    ['#s8-a', 59.4, { scale: 0.3, ease: 'spring', dur: 0.9, sfx: 'impact', vol: 0.7 }],   // "Kento Lite!"
+    ['#s8-photo', 60.0, { y: 300, r: 10, ease: 'back', dur: 0.8, sfx: 'whoosh', vol: 0.5 }],
+    ['#s8-b', 60.5, { dur: 0.2 }],                                          // "ต้มไข่ได้ดั่งใจ ทุกเช้า"
+    ['#s8-mochi', 61.3, { x: -260, ease: 'back', sfx: 'pop' }],
+    ['#s8-cta', 62.7, { scale: 0.3, ease: 'back', sfx: 'ding', vol: 0.7 }], // "กดลิงก์ที่หน้าโปรไฟล์"
+  ];
+  FX.cues(ITEMS, [
+    ...[7.3, 12.6, 26.4, 36.3, 43.1, 51.9, 59.0].map((at) => [at, 'whoosh', 0.7]),
+    ...Array.from({ length: 10 }, (_, k) => [SPIN[0] + k * 0.24, 'tick', 0.5]),
+    [WAKE, 'ring', 0.5],
+  ]);
+
+  const mixHex = (a, b, p) => '#' + [0, 2, 4].map((i) => Math.round(parseInt(a.substr(i + 1, 2), 16) * (1 - p) + parseInt(b.substr(i + 1, 2), 16) * p).toString(16).padStart(2, '0')).join('');
+
+  function render(t) {
+    FX.camera('#cam', t, DUR, { push: 0.04, shakes: [[1.4, 14], [8.9, 8], [WAKE, 12], [59.4, 12]] });
+    Boil.update(t);
+    $('#dots').style.transform = `translateY(${-t * 10}px)`;
+    FX.scenes(SCENES, t);
+    for (const [sel, out] of WHIP_OUT) if (t >= out + 0.6) $(sel).style.opacity = 0;
+    FX.items(ITEMS, t);
+
+    // 1 · eggs wobble, Mochi sweats
+    [0, 1, 2].forEach((i) => { $('#s1-e' + i).style.transform += ` rotate(${4 * Math.sin(t * 5 + i)}deg)`; });
+    $('#m1').style.transform = `translateY(${4 * Math.sin(t * 3)}px)`;
+    $('#sweat').style.transform = `translateY(${10 * ((t * 1.2) % 1)}px)`;
+    $('#sweat').style.opacity = 1 - ((t * 1.2) % 1);
+    FX.words('#s1-a .tx', t, 0.1, { each: 0.15 });
+
+    // 2 · reveal
+    [0, 1, 2, 3].forEach((i) => { $('#sp' + i).style.transform = `scale(${0.7 + 0.35 * Math.abs(Math.sin(t * 4 + i * 1.3))}) rotate(${t * 50}deg)`; });
+    $('#m2-wave').style.transform = `rotate(${-10 + 22 * Math.sin(Math.max(0, t - 11.5) * 8)}deg)`;
+    FX.words('#s2-a .tx', t, 7.65, { each: 0.15 });
+    FX.words('#s2-sub .tx', t, 10.3, { each: 0.08, y: 30 });
+    $('#s2-hero').style.transform += ` rotate(${1.2 * Math.sin(t * 1.8)}deg)`;
+
+    // 3 · egg guide
+    FX.words('#s3-a .tx', t, 13.05, { each: 0.15 });
+    EGGS.forEach((_, i) => { $('#s3-c' + i).style.transform += ` translateY(${5 * Math.sin(t * 2.5 + i)}px)`; });
+
+    // 4 · menu board lights up the line of each dish as it appears
+    FX.words('#s4-a .tx', t, 26.8, { each: 0.12 });
+    SPOKEN.forEach(([m, at]) => FX.highlight(`#s4-m${m} .tx`, t, at, { color: '#ffe08a', height: 0.5, dur: 0.35 }));
+
+    // 5 · night → morning: clock spins, moon becomes sun, Mochi wakes up to breakfast
+    const night = 1 - ease.inOut((t - DAWN) / 1.0);
+    $('#s5').style.backgroundColor = mixHex('#33406e', '#fff8ec', 1 - night);
+    const spin = ease.inOut((t - SPIN[0]) / SPIN[1]);
+    $('#mh').style.transform = `rotate(${spin * 360 * 8}deg)`;
+    $('#hh').style.transform = `rotate(${spin * 360 * 0.66}deg)`;
+    $('#moon').setAttribute('opacity', night);
+    $('#sun').setAttribute('opacity', 1 - night);
+    $('#sun').setAttribute('transform', `rotate(${t * 30} 100 100)`);   // spin around the sun's own centre
+    const awake = t >= WAKE;
+    $('#m5-face').setAttribute('opacity', awake ? 0 : 1);
+    $('#m5-face2').setAttribute('opacity', awake ? 1 : 0);
+    $('#m5wrap').style.transform = `translateY(${awake ? -30 * Math.abs(Math.sin((t - WAKE) * 6)) * Math.exp(-(t - WAKE)) : 0}px)`;
+    $('#blanket5').style.transform = `scaleY(${1 + 0.025 * Math.sin(t * 3.2)})`;
+    { const ph = (t * 0.6) % 1, z = $('#s5-z');
+      z.style.opacity = (t > 37.0 && t < WAKE - 0.2 ? 1 : 0) * Math.sin(Math.PI * ph);
+      z.style.transform = `translate(${470 + ph * 80}px, ${980 - ph * 160}px) rotate(${-10 + 16 * ph}deg)`; }
+
+    // 6 · features
+    FX.words('#s6-a .tx', t, 43.5, { each: 0.15 });
+    [0, 1, 2].forEach((k) => { $('#s6-g' + k).style.transform += ` translateY(${4 * Math.sin(t * 3 + k)}px)`; });
+
+    // 7 · dimensions draw on, badges pop
+    FX.words('#s7-a .tx', t, 52.1, { each: 0.15 });
+    FX.draw('#dimV', t, 53.4, 0.5);
+    FX.draw('#dimH', t, 53.7, 0.5);
+    $('#s7-b3').style.transform += ` scale(${1 + 0.04 * Math.sin(Math.max(0, t - 59.1) * 6)})`;
+
+    // 8 · call to action
+    FX.words('#s8-b .tx', t, 60.5, { each: 0.12 });
+    $('#m8-wave').style.transform = `rotate(${-10 + 22 * Math.sin(Math.max(0, t - 61.7) * 8)}deg)`;
+    $('#s8-cta .pill').style.transform = `scale(${1 + 0.04 * Math.sin(Math.max(0, t - 63.4) * 6)})`;
+    $('#s8-photo').style.transform += ` rotate(${1.2 * Math.sin(t * 1.6)}deg)`;
+    FX.burst('#confetti', t, 59.45, { x: 540, y: 300, n: 70, colors: ['#ffe08a', '#ff9eb5', '#a8e6cf', '#a0d2ff', '#ffb4a2'] });
+  }
+  window.render = render;
+
+  // ?render → driven by render.mjs · ?t=5 → freeze at 5s · otherwise loop with a scrubber
+  const params = new URLSearchParams(location.search);
+  if (params.has('render')) { document.body.classList.add('render'); render(0); }
+  else {
+    const fit = () => {
+      const s = Math.min(innerWidth / 1080, (innerHeight - 40) / 1920);
+      $('#stage').style.transform = `translate(${(innerWidth - 1080 * s) / 2}px, 0) scale(${s})`;
+    };
+    fit(); addEventListener('resize', fit);
+    const bar = $('#scrub input'), label = $('#scrub span');
+    const show = (t) => { render(t); bar.value = t; label.textContent = t.toFixed(2) + 's'; };
+    let t0 = performance.now(), dragging = false;
+    bar.addEventListener('input', () => { dragging = true; show(+bar.value); });
+    bar.addEventListener('change', () => { dragging = false; t0 = performance.now() - bar.value * 1000; });
+    const loop = () => { if (!dragging) show(((performance.now() - t0) / 1000) % DUR); requestAnimationFrame(loop); };
+    if (params.has('t')) show(+params.get('t')); else loop();
+  }
+</script>
+</body>
+</html>

@@ -17,10 +17,11 @@ if (!project || !existsSync(src)) {
   console.error(`usage: node render.mjs <project> [check|stills|video] [blur] [workers]\nprojects: ${readdirSync('projects').join(', ')}`);
   process.exit(1);
 }
-const FPS = 30, DUR = 15;
+const FPS = 30;
 const BLUR = Math.max(1, parseInt(blurArg, 10) || 1);
 const SHUTTER = 0.5;            // fraction of a frame the "shutter" stays open (0.5 = film-like 180°)
 const MUSIC_VOLUME = 0.55;      // music sits under the sound effects
+const SFX_UNDER_VOICE = 0.5;    // effects step back when there is a voiceover
 // TikTok/Reels cover the top tabs, the right-hand buttons and the bottom caption. Text stays inside this box.
 const SAFE = { left: 60, right: 960, top: 150, bottom: 1500 };
 // Separate Chrome instances scale (one shared Chrome plateaus at ~1.5x); measured gains stop at 8 on a 20-core PC.
@@ -30,6 +31,8 @@ const WORKERS = mode !== 'video' ? 1 : Math.max(1, parseInt(workersArg, 10) ||
 
 const startedAt = Date.now();
 const workers = await Promise.all(Array.from({ length: WORKERS }, openWorker));
+// A page may set window.DUR (seconds, default 15) and window.STILLS (preview times, default 1/5/9/14 s).
+const { DUR, STILLS } = await workers[0].page.evaluate(() => ({ DUR: window.DUR || 15, STILLS: window.STILLS || [1, 5, 9, 14] }));
 const shot = async (w, t) => {                     // fast lossless PNG straight from Chrome (~4x faster than page.screenshot)
   await w.page.evaluate((t) => render(t), t);
   const { data } = await w.cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true });
@@ -39,11 +42,11 @@ const shot = async (w, t) => {                     // fast lossless PNG straight
 if (mode === 'check') {
   // Every readable .tx (visible and settled, i.e. not mid-transition) must sit inside the safe zone and its card,
   // and not overlap another .tx of the same scene. Text flying in or zooming through is checked once it lands.
-  const problems = await workers[0].page.evaluate((SAFE) => {
+  const problems = await workers[0].page.evaluate(({ SAFE, DUR }) => {
     const out = [];
     const alpha = (e) => { let a = 1; for (; e; e = e.parentElement) a *= +getComputedStyle(e).opacity; return a; };
     const all = [...document.querySelectorAll('.tx')];
-    for (let i = 0; i <= 150; i++) {
+    for (let i = 0; i <= DUR * 10; i++) {
       const t = i / 10;
       render(t + 0.05);
       const later = all.map((e) => e.getBoundingClientRect());
@@ -63,12 +66,12 @@ if (mode === 'check') {
           out.push(`t=${t} overlap: "${a.e.textContent}" / "${b.e.textContent}"`);
     }
     return out;
-  }, SAFE);
+  }, { SAFE, DUR });
   console.log(problems.length ? problems.join('\n') : 'layout OK');
   if (problems.length) process.exitCode = 1;
 } else if (mode === 'stills') {
   mkdirSync(`${out}/stills`, { recursive: true });
-  for (const t of [1, 5, 9, 14]) writeFileSync(`${out}/stills/still-${String(t).padStart(2, '0')}s.png`, await shot(workers[0], t));
+  for (const t of STILLS) writeFileSync(`${out}/stills/still-${String(t).padStart(2, '0')}s.png`, await shot(workers[0], t));
   console.log(`stills saved to ${out}/stills`);
 } else {
   mkdirSync(out, { recursive: true });
@@ -133,17 +136,20 @@ async function openWorker() {
   return { browser, page, cdp: await page.context().newCDPSession(page) };
 }
 
-// Mix the page's SFX cues (window.SFX = [[time, name, volume], ...]) and optional brand/music.* into one track.
-// Anything missing is skipped with a note; with no sounds at all the clip renders silent.
+// Mix the page's SFX cues (window.SFX = [[time, name, volume], ...]), optional brand/voice.* (voiceover, played once
+// from 0 s at full level) and optional brand/music.* into one track. With a voiceover the effects drop to
+// SFX_UNDER_VOICE and the music ducks whenever someone speaks. Anything missing is skipped with a note;
+// with no sounds at all the clip renders silent.
 function buildAudio(cues) {
   const find = (base) => ['wav', 'mp3', 'm4a', 'ogg'].map((e) => `${base}.${e}`).find((f) => existsSync(f));
+  const voice = find(`${brand}/voice`), music = find(`${brand}/music`);
+  const sfxLevel = voice ? SFX_UNDER_VOICE : 1;
   const byFile = new Map(), missing = new Set();
   for (const [t, name, vol = 1] of cues) {
     const f = find(`${brand}/sfx/${name}`) ?? find(`sfx/${name}`);
     if (!f) { missing.add(name); continue; }
-    byFile.set(f, [...(byFile.get(f) ?? []), [t, vol]]);
+    byFile.set(f, [...(byFile.get(f) ?? []), [t, vol * sfxLevel]]);
   }
-  const music = find(`${brand}/music`);
   const inputs = [], graph = [], mix = [];
   let idx = 1;
   for (const [f, list] of byFile) {
@@ -155,12 +161,20 @@ function buildAudio(cues) {
     });
     idx++;
   }
+  if (voice) {
+    inputs.push('-i', voice);
+    graph.push(music ? `[${idx}:a]asplit=2[voice][vkey]` : `[${idx}:a]anull[voice]`);
+    mix.push('[voice]');
+    idx++;
+  }
   if (music) {
     inputs.push('-stream_loop', '-1', '-i', music);
-    graph.push(`[${idx}:a]atrim=0:${DUR},afade=t=in:d=0.3,afade=t=out:st=${DUR - 1.5}:d=1.5,volume=${MUSIC_VOLUME}[mus]`);
+    const duck = voice ? '[mus0];[mus0][vkey]sidechaincompress=threshold=0.02:ratio=8:attack=20:release=400' : '';
+    graph.push(`[${idx}:a]atrim=0:${DUR},afade=t=in:d=0.3,afade=t=out:st=${DUR - 1.5}:d=1.5,volume=${MUSIC_VOLUME}${duck}[mus]`);
     mix.push('[mus]');
   }
-  console.log(`audio: ${[...byFile.values()].reduce((n, l) => n + l.length, 0)} sfx cues, ${music ? 'music ' + music : `no music (add ${brand}/music.mp3)`}`
+  console.log(`audio: ${[...byFile.values()].reduce((n, l) => n + l.length, 0)} sfx cues${voice ? ` (at ${SFX_UNDER_VOICE}× under voice)` : ''}, `
+    + `${voice ? 'voice ' + voice : 'no voice'}, ${music ? 'music ' + music + (voice ? ' (ducked)' : '') : `no music (add ${brand}/music.mp3)`}`
     + (missing.size ? `, missing sfx skipped: ${[...missing].join(', ')}` : ''));
   if (!mix.length) return { inputs, graph, map: [] };
   graph.push(`${mix.join('')}amix=inputs=${mix.length}:normalize=0:duration=longest,alimiter=limit=0.9,apad,atrim=0:${DUR}[aout]`);
