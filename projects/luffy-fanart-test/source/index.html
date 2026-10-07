@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>luffy fanart test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Kanit:wght@600;800&family=Rye&display=block" rel="stylesheet">
+<style>
+  :root { --ink:#111; --paper:#f1dfb8; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1080px; height:1920px; overflow:hidden; background:#000; font-family:'Kanit', sans-serif; }
+  #stage { position:absolute; left:0; top:0; width:1080px; height:1920px; overflow:hidden; background:#14223d; transform-origin:0 0; }
+  #cam { position:absolute; inset:0; transform-origin:50% 50%; }
+  #scrub { position:fixed; left:12px; right:12px; bottom:12px; display:flex; gap:12px; align-items:center; font:600 14px/1 sans-serif; color:#fff; z-index:9; }
+  #scrub input { flex:1; }
+  .render #scrub { display:none; }
+  svg .o { stroke:var(--ink); stroke-width:6; stroke-linejoin:round; stroke-linecap:round; }
+  .scene { position:absolute; inset:0; opacity:0; overflow:hidden; }
+  .art { position:absolute; overflow:visible; }
+  .ln { position:absolute; left:0; right:0; text-align:center; white-space:nowrap; opacity:0; }
+  .tx { display:inline-block; line-height:1.25; }
+  .rye { font-family:'Rye', 'Kanit', serif; color:#3b2412; }
+  #flash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; }
+</style>
+<script src="../../../lib/fx.js"></script>
+<script src="../../../styles/manga-action/manga.js"></script>  <!-- .an .th .prop captions + speed lines, impact frames -->
+</head>
+<body>
+<div id="stage">
+<div id="cam">
+
+  <!-- 1 · WANTED poster on a wooden board -->
+  <div class="scene" id="s1" style="background:#6b4423">
+    <svg class="art" id="planks" viewBox="0 0 1080 1920" style="left:0;top:0;width:1080px;height:1920px"></svg>
+    <div class="art" id="poster" style="left:150px;top:260px;width:780px;height:1180px">
+      <svg viewBox="0 0 780 1180" style="position:absolute;inset:0;width:780px;height:1180px">
+        <path class="o" d="M14 20 L 250 6 L 520 18 L 766 8 L 772 400 L 762 760 L 774 1170 L 520 1160 L 260 1174 L 8 1164 L 18 780 L 6 400 Z" fill="#f1dfb8" stroke-width="5"/>
+        <path d="M40 40 L 740 40 L 740 1140 L 40 1140 Z" fill="none" stroke="#8a6a3e" stroke-width="4"/>
+        <rect class="o" x="110" y="250" width="560" height="520" fill="#fff4dc" stroke-width="5"/>
+        <circle cx="390" cy="22" r="14" fill="#555" stroke="#111" stroke-width="4"/>
+      </svg>
+      <svg id="poster-face" viewBox="0 0 400 400" style="position:absolute;left:120px;top:260px;width:540px;height:500px"></svg>
+      <div class="ln" style="top:70px;opacity:1"><span class="prop rye" style="font-size:150px">WANTED</span></div>
+      <div class="ln" style="top:785px;opacity:1"><span class="prop rye" style="font-size:52px">DEAD OR ALIVE</span></div>
+      <div class="ln" style="top:885px;opacity:1"><span class="prop rye" style="font-size:66px">MONKEY · D · LUFFY</span></div>
+      <div class="ln" style="top:1000px;opacity:1"><span class="prop rye" style="font-size:74px">฿ 3,000,000,000 -</span></div>
+    </div>
+  </div>
+
+  <!-- 2 · on the bow: intro card -->
+  <div class="scene" id="s2" style="background:linear-gradient(#3aa0ff, #a9dcff 60%)">
+    <svg class="art" id="clouds" viewBox="0 0 1080 1920" style="left:0;top:0;width:1080px;height:1920px"></svg>
+    <svg class="art" id="sea" viewBox="0 0 1080 700" style="left:0;top:1220px;width:1080px;height:700px"></svg>
+    <svg class="art" id="luffy2" viewBox="0 0 600 760" style="left:240px;top:640px;width:600px;height:760px"></svg>
+    <svg class="art" id="bow" viewBox="0 0 1080 520" style="left:0;top:1400px;width:1080px;height:520px">
+      <path class="o" d="M-20 120 L 700 60 L 1110 210 L 1110 540 L -20 540 Z" fill="#a8672f"/>
+      <path d="M-20 170 L 700 110 L 1110 250" fill="none" stroke="#7d4a1f" stroke-width="10"/>
+      <path d="M-20 260 L 1110 300 M-20 360 L 1110 390" stroke="#7d4a1f" stroke-width="6"/>
+    </svg>
+    <svg class="art" id="wind" viewBox="0 0 1080 1920" style="left:0;top:0;width:1080px;height:1920px"></svg>
+    <div class="art" id="card" style="left:-60px;top:1060px;width:1200px;height:400px;transform-origin:50% 50%">
+      <div style="position:absolute;inset:0;background:repeating-linear-gradient(-60deg,#f2c230 0 70px,#e8b11c 70px 140px);border-top:10px solid #111;border-bottom:10px solid #111;transform:rotate(-7deg)"></div>
+      <div class="ln" id="card-jp" style="top:40px;opacity:1;transform:rotate(-7deg)"><span class="tx an" style="font-size:80px">モンキー・D・ルフィ</span></div>
+      <div class="ln" id="card-th" style="top:250px;opacity:1;transform:rotate(-7deg)"><span class="tx th" style="font-size:64px">ลูฟี่หมวกฟาง</span></div>
+    </div>
+  </div>
+
+  <!-- 3 · Gomu Gomu no... Pistol!! -->
+  <div class="scene" id="s3" style="background:#14223d">
+    <svg class="art" id="focus" viewBox="0 0 1080 1920" style="left:0;top:0;width:1080px;height:1920px"></svg>
+    <svg class="art" id="luffy3" viewBox="0 0 600 760" style="left:240px;top:760px;width:600px;height:760px"></svg>
+    <svg class="art" id="arm" viewBox="0 0 1080 1920" style="left:0;top:0;width:1080px;height:1920px"></svg>
+    <div class="ln" id="s3-gomu" style="top:230px"><span class="tx an" style="font-size:110px">ゴムゴムの…</span></div>
+    <div class="ln" id="s3-pistol" style="top:400px"><span class="tx an" style="font-size:150px">ピストル!!</span></div>
+    <div class="ln" id="s3-don" style="top:1020px"><span class="tx an" style="font-size:240px">ドン!!</span></div>
+    <div class="ln" id="s3-sub" style="top:1380px"><span class="tx th" style="font-size:56px">ยางยืด… ปืนพก!!</span></div>
+  </div>
+
+  <!-- 4 · sunset: the dream -->
+  <div class="scene" id="s4" style="background:linear-gradient(#ff7a59, #ffb35c 45%, #ffd27a 62%)">
+    <svg class="art" viewBox="0 0 1080 1920" style="left:0;top:0;width:1080px;height:1920px">
+      <circle cx="540" cy="1130" r="260" fill="#fff1a8" opacity=".9"/>
+      <path d="M0 1180 L 1080 1180 L 1080 1920 L 0 1920 Z" fill="#c2577a"/>
+      <g id="glints"></g>
+    </svg>
+    <svg class="art" id="luffy4" viewBox="0 0 600 760" style="left:190px;top:640px;width:700px;height:887px"></svg>
+    <div class="ln" id="s4-jp" style="top:235px"><span class="tx an" style="font-size:72px">海賊王に、おれはなる!!</span></div>
+    <div class="ln" id="s4-th" style="top:360px"><span class="tx th" style="font-size:62px">ข้าจะเป็นราชาโจรสลัด!!</span></div>
+    <div class="ln" id="s4-next" style="top:1335px"><span class="tx th" style="font-size:50px;background:#d9332b;border:6px solid #111;border-radius:999px;padding:4px 40px 10px">ติดตามตอนต่อไป ▶</span></div>
+  </div>
+</div>
+<div id="flash"></div>
+</div>
+<div id="scrub"><input type="range" min="0" max="15" step="0.0333" value="0"><span>0.00s</span></div>
+
+<script>
+  // Every frame is a pure function of t (seconds). Effects come from lib/fx.js (catalogue at its top).
+  // Fan art for a private feature test — not for distribution.
+  const $ = (s) => document.querySelector(s);
+  const { ease, clamp } = FX;
+  const DUR = 15;
+  const K = { skin: '#ffd9b3', skinS: '#efb486', hair: '#151515', straw: '#f2cf5b', strawS: '#d4a63a', red: '#d9332b', redS: '#a82620', sash: '#f2c230', blue: '#2e5fb7', blueS: '#234a92', mouth: '#5a1a1a', tongue: '#e86a6a' };
+
+  // ---- Luffy, drawn with cel shading (base + hard shadow shape) ---------------------------------
+  // head(expr) lives in a 400×400 box, face centred near (200, 250)
+  function head(expr) {
+    const eyes = {
+      grin:    `<path class="o" d="M132 256 C 146 238, 176 238, 190 250" fill="none" stroke-width="9"/><path class="o" d="M268 256 C 254 238, 224 238, 210 250" fill="none" stroke-width="9"/>
+                <ellipse cx="163" cy="266" rx="13" ry="17" fill="#111"/><ellipse cx="237" cy="266" rx="13" ry="17" fill="#111"/>
+                <circle cx="168" cy="259" r="5" fill="#fff"/><circle cx="242" cy="259" r="5" fill="#fff"/>`,
+      fierce:  `<path class="o" d="M132 252 L 190 258" fill="none" stroke-width="10"/><path class="o" d="M268 252 L 210 258" fill="none" stroke-width="10"/>
+                <ellipse cx="163" cy="270" rx="12" ry="13" fill="#111"/><ellipse cx="237" cy="270" rx="12" ry="13" fill="#111"/>
+                <circle cx="167" cy="265" r="4" fill="#fff"/><circle cx="241" cy="265" r="4" fill="#fff"/>`,
+      laugh:   `<path class="o" d="M138 266 Q 162 244 186 266" fill="none" stroke-width="9"/><path class="o" d="M214 266 Q 238 244 262 266" fill="none" stroke-width="9"/>`,
+    };
+    const brows = expr === 'fierce'
+      ? `<path d="M136 226 L 186 244 M264 226 L 214 244" stroke="#111" stroke-width="11" stroke-linecap="round"/>`
+      : `<path d="M140 228 Q 162 218 184 228 M216 228 Q 238 218 260 228" stroke="#111" stroke-width="9" fill="none" stroke-linecap="round"/>`;
+    const mouth = {
+      grin:   `<path class="o" d="M146 304 C 166 352, 234 352, 254 304 Z" fill="${K.mouth}"/><path d="M150 306 C 180 318, 220 318, 250 306 L 246 316 C 220 328, 180 328, 154 316 Z" fill="#fff"/><path d="M178 338 C 192 330, 210 330, 222 338 C 210 346, 190 346, 178 338 Z" fill="${K.tongue}"/>`,
+      fierce: `<path class="o" d="M160 312 C 180 336, 220 336, 240 312 Z" fill="${K.mouth}"/><path d="M164 314 L 236 314 L 232 322 L 168 322 Z" fill="#fff"/><path d="M168 330 L 232 330" stroke="#fff" stroke-width="6"/>`,
+      laugh:  `<path class="o" d="M138 300 C 160 372, 240 372, 262 300 Z" fill="${K.mouth}"/><path d="M142 302 C 180 316, 220 316, 258 302 L 254 314 C 220 328, 180 328, 146 314 Z" fill="#fff"/><path d="M172 350 C 190 338, 212 338, 230 350 C 212 362, 190 362, 172 350 Z" fill="${K.tongue}"/>`,
+    };
+    return `
+      <path class="o" d="M116 180 L 82 222 L 110 212 L 88 262 L 120 238 Z M284 180 L 318 222 L 290 212 L 312 262 L 280 238 Z" fill="${K.hair}"/>
+      <ellipse class="o" cx="110" cy="248" rx="15" ry="25" fill="${K.skin}"/><ellipse class="o" cx="290" cy="248" rx="15" ry="25" fill="${K.skinS}"/>
+      <path class="o" d="M112 210 C 110 140, 290 140, 288 210 C 292 284, 262 344, 200 360 C 138 344, 108 284, 112 210 Z" fill="${K.skin}"/>
+      <path d="M252 178 C 288 196, 292 236, 286 262 C 280 304, 256 338, 222 354 C 256 310, 266 244, 252 178 Z" fill="${K.skinS}"/>
+      <path d="M118 200 C 160 214, 240 214, 284 200 L 286 226 C 240 236, 160 236, 116 226 Z" fill="${K.skinS}" opacity=".9"/>
+      <path class="o" d="M116 188 L 136 246 L 150 204 L 172 254 L 184 206 L 204 252 L 216 206 L 238 254 L 250 204 L 266 244 L 284 188 Z" fill="${K.hair}"/>
+      ${brows}${eyes[expr]}
+      <path d="M228 296 L 262 294 M238 288 L 236 302 M252 287 L 250 301" stroke="#9b4b3c" stroke-width="4" stroke-linecap="round"/>
+      <path d="M200 284 L 205 293" stroke="#b8735a" stroke-width="5" stroke-linecap="round"/>
+      ${mouth[expr]}
+      <ellipse class="o" cx="200" cy="182" rx="150" ry="30" fill="${K.straw}"/>
+      <path d="M58 186 C 120 214, 280 214, 342 186 C 330 204, 270 214, 200 214 C 130 214, 70 204, 58 186 Z" fill="${K.strawS}"/>
+      <path class="o" d="M132 178 C 130 92, 270 92, 268 178 Z" fill="${K.straw}"/>
+      <path d="M228 102 C 256 118, 268 146, 268 178 L 246 178 C 250 146, 246 124, 228 102 Z" fill="${K.strawS}"/>
+      <path class="o" d="M134 158 C 170 148, 230 148, 266 158 L 268 180 C 230 170, 170 170, 132 180 Z" fill="${K.red}"/>
+      <path d="M150 120 L 156 128 M190 106 L 194 116 M232 112 L 228 122 M100 186 L 108 192 M300 186 L 292 192" stroke="${K.strawS}" stroke-width="4" stroke-linecap="round"/>`;
+  }
+  // bust in a 600×760 box; head placed at (100, 0). arm: 'down' | 'none' (right arm drawn separately for the punch)
+  function bust(expr, arm = 'down') {
+    const rightArm = arm === 'down'
+      ? `<path class="o" d="M475 420 C 505 470, 512 560, 505 650 L 460 650 C 460 560, 450 480, 435 440 Z" fill="${K.skinS}"/><circle class="o" cx="482" cy="670" r="34" fill="${K.skinS}"/>` : '';
+    return `
+      <path class="o" d="M125 420 C 95 470, 88 560, 95 650 L 140 650 C 140 560, 150 480, 165 440 Z" fill="${K.skin}"/><circle class="o" cx="118" cy="670" r="34" fill="${K.skin}"/>
+      ${rightArm}
+      <path class="o" d="M272 330 L 328 330 L 334 396 L 266 396 Z" fill="${K.skin}"/>
+      <path d="M272 334 L 328 334 L 330 356 C 300 368, 290 368, 270 356 Z" fill="${K.skinS}"/>
+      <path class="o" d="M236 386 L 364 386 L 372 700 L 228 700 Z" fill="${K.skin}"/>
+      <path d="M332 388 L 364 388 L 372 700 L 340 700 Z" fill="${K.skinS}"/>
+      <path d="M272 470 L 328 532 M328 470 L 272 532" stroke="#c0605a" stroke-width="8" stroke-linecap="round"/>
+      <path class="o" d="M120 412 C 160 386, 220 380, 262 384 L 256 520 L 244 700 L 134 700 C 124 600, 116 500, 120 412 Z" fill="${K.red}"/>
+      <path class="o" d="M480 412 C 440 386, 380 380, 338 384 L 344 520 L 356 700 L 466 700 C 476 600, 484 500, 480 412 Z" fill="${K.redS}"/>
+      <path d="M150 440 C 160 520, 160 610, 150 690" stroke="${K.redS}" stroke-width="10" fill="none"/>
+      <path class="o" d="M140 690 L 460 690 L 462 726 L 138 726 Z" fill="${K.sash}"/>
+      <path class="o" d="M138 726 L 462 726 L 470 772 L 130 772 Z" fill="${K.blue}"/>
+      <g transform="translate(50 -90) scale(1.25)">${head(expr)}</g>`;
+  }
+  const FIST = `<path class="o" d="M-118 -40 C -120 -80, 120 -80, 118 -40 L 112 70 C 106 122, -106 122, -112 70 Z" fill="${K.skin}" stroke-width="10"/>
+    <path d="M50 -60 C 100 -50, 118 -20, 116 20 L 110 80 C 104 112, 70 120, 40 120 Z" fill="${K.skinS}"/>
+    ${[-84, -28, 28, 84].map((x, i) => `<circle class="o" cx="${x}" cy="-62" r="34" fill="${i === 3 ? K.skinS : K.skin}" stroke-width="10"/>`).join('')}
+    <path d="M-56 -40 L -56 30 M0 -40 L 0 30 M56 -40 L 56 30" stroke="#111" stroke-width="8" stroke-linecap="round"/>
+    <path class="o" d="M-114 34 C -60 6, 30 14, 70 52 C 54 86, -50 96, -112 84 Z" fill="${K.skin}" stroke-width="10"/>
+    <path d="M-20 70 C 10 74, 40 70, 58 60" stroke="${K.skinS}" stroke-width="10" fill="none" stroke-linecap="round"/>`;
+
+  $('#poster-face').innerHTML = head('grin');
+  $('#luffy2').innerHTML = bust('grin');
+  $('#luffy3').innerHTML = bust('fierce', 'none');
+  $('#luffy4').innerHTML = bust('laugh');
+
+  // ---- static backgrounds -------------------------------------------------------------------
+  $('#planks').innerHTML = Array.from({ length: 7 }, (_, i) =>
+    `<rect x="${i * 160 - 10}" y="-20" width="158" height="1960" fill="${i % 2 ? '#7a4e28' : '#6b4423'}" stroke="#3d240f" stroke-width="6"/>
+     <path d="M${i * 160 + 40} 300 C ${i * 160 + 70} 500, ${i * 160 + 20} 800, ${i * 160 + 60} 1100" stroke="#5a3519" stroke-width="5" fill="none"/>`).join('');
+  $('#clouds').innerHTML = [[200, 300, 1], [820, 420, 1.3], [520, 820, 0.9], [120, 1020, 1.1], [900, 1080, 0.8]].map(([x, y, s], i) =>
+    `<g transform="translate(${x} ${y}) scale(${s})"><g id="cl${i}">
+       <path class="o" d="M-170 40 C -200 -10, -140 -60, -90 -40 C -80 -110, 30 -120, 50 -50 C 90 -90, 170 -60, 160 0 C 210 10, 200 70, 150 70 L -150 70 C -200 70, -210 50, -170 40 Z" fill="#fff" stroke-width="5"/>
+       <path d="M-160 62 C -60 40, 60 40, 150 62 L 150 70 L -150 70 Z" fill="#cfe8ff"/></g></g>`).join('');
+
+  // ---- timeline -----------------------------------------------------------------------------
+  const SCENES = [
+    ['#s1', -1, 3.0, { exit: 'hold' }],
+    ['#s2', 3.0, 7.2, { enter: 'wipe', dur: 0.45 }],      // diagonal slash wipe
+    ['#s3', 7.2, 10.8, { enter: 'zoom', exit: 'hold' }],
+    ['#s4', 10.8, 99, { enter: 'circle', dur: 0.6 }],
+  ];
+  // [element, start (s), {comes in from x/y/r/scale, dur, ease, sfx}]
+  const ITEMS = [
+    ['#poster',    0.1,  { y: -1500, r: -25, ease: 'spring', dur: 1.0, sfx: 'whoosh' }],
+    ['#luffy2',    3.3,  { y: 420, ease: 'back', dur: 0.7, sfx: 'whoosh', vol: 0.6 }],
+    ['#card',      4.9,  { x: 1300, ease: 'out', dur: 0.35, sfx: 'impact', vol: 0.8 }],
+    ['#luffy3',    7.25, { scale: 0.7, ease: 'back', dur: 0.5 }],
+    ['#s3-gomu',   7.55, { dur: 0.15 }],
+    ['#s3-pistol', 8.55, { scale: 2.2, ease: 'out', dur: 0.25 }],
+    ['#s3-don',    9.0,  { scale: 3, ease: 'back', dur: 0.35, sfx: 'impact' }],
+    ['#s3-sub',    8.7,  { y: 40, dur: 0.3 }],
+    ['#luffy4',    11.0, { y: 300, ease: 'back', dur: 0.7, sfx: 'whoosh', vol: 0.6 }],
+    ['#s4-jp',     11.6, { dur: 0.15 }],
+    ['#s4-th',     12.3, { dur: 0.2 }],
+    ['#s4-next',   13.2, { scale: 0.3, ease: 'back', sfx: 'pop' }],
+  ];
+  const LAUNCH = 8.3, HIT = 8.55;
+  FX.cues(ITEMS, [
+    [0.95, 'impact', 0.5], [1.9, 'whoosh', 0.7], [3.0, 'whoosh', 0.9],
+    [7.2, 'whoosh', 0.8], [LAUNCH - 0.1, 'stretch', 1], [HIT, 'impact', 1], [HIT + 0.02, 'impact', 0.7],
+    [10.8, 'whoosh', 0.7], [11.6, 'ding', 0.5],
+  ]);
+
+  function render(t) {
+    FX.camera('#cam', t, DUR, { push: 0.08, shakes: [[0.95, 14], [4.9, 12], [HIT, 34], [9.0, 26]] });
+    FX.scenes(SCENES, t);
+    FX.items(ITEMS, t);
+
+    // 1 · poster flutters, then the camera punches in on the face
+    $('#poster').style.transform += ` rotate(${1.5 * Math.sin(t * 2.3)}deg)`;
+    const punch = ease.inOut((t - 1.9) / 0.5);
+    $('#s1').style.transform += ` scale(${1 + 0.55 * punch})`;
+    $('#s1').style.transformOrigin = '540px 830px';                   // the face on the poster
+
+    // 2 · sky drifts, sea rolls, wind streaks, intro card
+    for (let i = 0; i < 5; i++) $('#cl' + i).style.transform = `translateX(${-t * (14 + i * 6)}px)`;
+    $('#sea').innerHTML = `<rect x="0" y="0" width="1080" height="700" fill="#1f7fd1"/>` + Array.from({ length: 8 }, (_, r) => {
+      const y = 30 + r * 70, off = ((t * (60 + r * 12)) % 160) - 160;
+      return `<path d="${Array.from({ length: 9 }, (_, k) => `M${off + k * 160} ${y} q 40 -22 80 0`).join(' ')}" stroke="#fff" stroke-width="${6 - r * 0.4}" fill="none" stroke-linecap="round" opacity="${0.9 - r * 0.08}"/>`;
+    }).join('');
+    $('#luffy2').style.transform += ` translateY(${6 * Math.sin(t * 2)}px)`;
+    Manga.windLines($('#wind'), t);
+    FX.chars('#card-jp .tx', t, 5.05, { each: 0.04, y: 0, ease: 'out' });
+    FX.words('#card-th .tx', t, 5.4, { each: 0.08, y: 30 });
+
+    // 3 · focus lines flicker (re-drawn 12× a second like hand-drawn smears)
+    Manga.focusLines($('#focus'), t, { cx: 540, cy: 980 });
+    FX.chars('#s3-gomu .tx', t, 7.55, { each: 0.08, y: -60 });
+    // wind-up: lean back; launch: the fist races from the shoulder to fill the screen; recoil: it snaps back
+    const windup = ease.out((t - 7.7) / 0.55) * (1 - clamp((t - LAUNCH) / 0.1));
+    $('#luffy3').style.transform += ` rotate(${-7 * windup}deg) translateX(${-30 * windup}px)`;
+    const go = clamp((t - LAUNCH) / (HIT - LAUNCH)) ** 2.2, back = ease.inOut((t - 10.1) / 0.45);
+    const reach = go * (1 - back);
+    const sx = 240 + 470 * 1, sy = 760 + 420;                  // right shoulder on screen
+    const fx = sx + (540 - sx) * reach, fy = sy + (930 - sy) * reach, fr = 40 + 330 * reach;   // fist centre and size
+    const show = t > LAUNCH - 0.15 && back < 1;
+    if (show) {
+      const ang = Math.atan2(fy - sy, fx - sx), n = [-Math.sin(ang), Math.cos(ang)], w0 = 30, w1 = fr * 0.55;
+      const P = (x, y, w, s) => `${x + n[0] * w * s} ${y + n[1] * w * s}`;
+      const streaks = Array.from({ length: 5 }, (_, k) => { const f = 0.2 + k * 0.15, x = sx + (fx - sx) * f, y = sy + (fy - sy) * f, w = (w0 + (w1 - w0) * f) * 1.6;
+        return `<path d="M${P(x, y, w, 1)} L ${P(x - (fx - sx) * 0.12, y - (fy - sy) * 0.12, w, 1)}" stroke="#fff" stroke-width="5" opacity="${reach < 0.98 ? 0.8 : 0}"/>`; }).join('');
+      $('#arm').innerHTML = `${streaks}<path class="o" d="M${P(sx, sy, w0, 1)} L ${P(fx, fy, w1, 1)} L ${P(fx, fy, w1, -1)} L ${P(sx, sy, w0, -1)} Z" fill="${K.skin}" stroke-width="8"/>
+        <path d="M${P(sx, sy, w0 * 0.2, -1)} L ${P(fx, fy, w1 * 0.3, -1)} L ${P(fx, fy, w1, -1)} L ${P(sx, sy, w0, -1)} Z" fill="${K.skinS}"/>
+        <g transform="translate(${fx} ${fy}) scale(${fr / 120}) rotate(${-10 + 10 * reach})">${FIST}</g>`;
+    } else $('#arm').innerHTML = '';
+    FX.chars('#s3-pistol .tx', t, HIT, { each: 0.05, y: 0, ease: 'out' });
+    // impact frames: two flashes of inverted black-and-white, then a white pop
+    Manga.impact($('#cam'), t, [[HIT, HIT + 0.07], [HIT + 0.11, HIT + 0.16], [9.0, 9.05]]);
+    Manga.flash($('#flash'), t, HIT + 0.2);
+
+    // 4 · sunset laugh
+    $('#glints').innerHTML = Array.from({ length: 14 }, (_, i) => {
+      const r = FX.rng(i * 7 + 1), x = r() * 1080, y = 1220 + r() * 600, on = Math.sin(t * 4 + i * 1.7) > 0.3;
+      return on ? `<path d="M${x - 30} ${y} L ${x + 30} ${y}" stroke="#ffe7a8" stroke-width="6" stroke-linecap="round"/>` : ''; }).join('');
+    $('#luffy4').style.transform += ` translateY(${-14 * Math.abs(Math.sin((t - 11) * 7))}px) rotate(${2 * Math.sin((t - 11) * 7)}deg)`;
+    FX.chars('#s4-jp .tx', t, 11.6, { each: 0.05, y: -40 });
+    FX.words('#s4-th .tx', t, 12.3, { each: 0.1 });
+  }
+  window.render = render;
+
+  // ?render → driven by render.mjs · ?t=5 → freeze at 5s · otherwise loop with a scrubber
+  const params = new URLSearchParams(location.search);
+  if (params.has('render')) { document.body.classList.add('render'); render(0); }
+  else {
+    const fit = () => {
+      const s = Math.min(innerWidth / 1080, (innerHeight - 40) / 1920);
+      $('#stage').style.transform = `translate(${(innerWidth - 1080 * s) / 2}px, 0) scale(${s})`;
+    };
+    fit(); addEventListener('resize', fit);
+    const bar = $('#scrub input'), label = $('#scrub span');
+    const show = (t) => { render(t); bar.value = t; label.textContent = t.toFixed(2) + 's'; };
+    let t0 = performance.now(), dragging = false;
+    bar.addEventListener('input', () => { dragging = true; show(+bar.value); });
+    bar.addEventListener('change', () => { dragging = false; t0 = performance.now() - bar.value * 1000; });
+    const loop = () => { if (!dragging) show(((performance.now() - t0) / 1000) % DUR); requestAnimationFrame(loop); };
+    if (params.has('t')) show(+params.get('t')); else loop();
+  }
+</script>
+</body>
+</html>

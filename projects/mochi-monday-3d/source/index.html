@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>mochi monday 3d</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mali:wght@600;700&display=block" rel="stylesheet">
+<style>
+  :root { --paper:#fff8ec; --ink:#2b2b2b; --butter:#ffe08a; --coral:#ff8a7a; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1080px; height:1920px; overflow:hidden; background:var(--paper); color:var(--ink); font-family:'Mali', sans-serif; }
+  #stage { position:absolute; left:0; top:0; width:1080px; height:1920px; overflow:hidden; background:var(--paper); transform-origin:0 0; }
+  #gl { position:absolute; inset:0; width:1080px; height:1920px; }
+  #cam { position:absolute; inset:0; transform-origin:50% 50%; }      /* 2D text layer; the 3D camera moves in WebGL */
+  #scrub { position:fixed; left:12px; right:12px; bottom:12px; display:flex; gap:12px; align-items:center; font:600 14px/1 sans-serif; color:#333; z-index:9; }
+  #scrub input { flex:1; }
+  .render #scrub { display:none; }
+
+  .scene { position:absolute; inset:0; opacity:0; }
+  .ln { position:absolute; left:0; right:0; text-align:center; white-space:nowrap; opacity:0; }
+  .lb { position:absolute; white-space:nowrap; opacity:0; }
+  .tx { display:inline-block; font-weight:700; line-height:1.3;
+        text-shadow: -5px -5px 0 var(--paper), 5px -5px 0 var(--paper), -5px 5px 0 var(--paper), 5px 5px 0 var(--paper),
+                     0 -6px 0 var(--paper), 0 6px 0 var(--paper), -6px 0 0 var(--paper), 6px 0 0 var(--paper), 8px 9px 0 #00000022; }
+  .bubble { background:#fff; border:7px solid var(--ink); border-radius:70px; padding:18px 44px 24px; box-shadow:8px 9px 0 #00000022; }
+  .bubble .tx, .pill .tx { text-shadow:none; }
+  .pill { display:inline-block; background:var(--butter); border:7px solid var(--ink); border-radius:999px; padding:10px 46px 16px; box-shadow:8px 9px 0 #00000026; }
+  .z { position:absolute; left:0; top:0; font-weight:700; color:#7aa7d9; opacity:0; }
+</style>
+<script src="../../../lib/fx.js"></script>
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }</script>
+</head>
+<body>
+<div id="stage">
+  <canvas id="gl" width="1080" height="1920"></canvas>
+  <div id="cam">
+    <div class="scene" id="t1">
+      <div class="ln" id="t1-date" style="top:190px"><span class="pill"><span class="tx" style="font-size:48px">จันทร์ 07:00</span></span></div>
+      <div class="lb" id="t1-ring" style="left:80px;top:330px"><span class="tx" style="font-size:118px;color:var(--coral)">กริ๊งงง!</span></div>
+      <div class="lb" id="t1-bubble" style="left:60px;top:660px">
+        <div class="bubble"><span class="tx" style="font-size:60px">ขออีก 5 นาที...</span></div>
+        <svg viewBox="0 0 80 70" style="position:absolute;left:300px;top:150px;width:80px;height:70px;overflow:visible">
+          <circle cx="30" cy="16" r="16" fill="#fff" stroke="#2b2b2b" stroke-width="6"/><circle cx="52" cy="54" r="9" fill="#fff" stroke="#2b2b2b" stroke-width="5"/>
+        </svg>
+      </div>
+      <span class="z" id="z0" style="font-size:74px">z</span><span class="z" id="z1" style="font-size:58px">z</span><span class="z" id="z2" style="font-size:44px">z</span>
+    </div>
+    <div class="scene" id="t2">
+      <div class="ln" id="t2-title" style="top:230px"><span class="tx" style="font-size:86px">ต้องพึ่งตัวช่วย...</span></div>
+      <div class="lb" id="t2-sip" style="left:150px;top:640px"><div class="bubble"><span class="tx" style="font-size:60px">จิบ~</span></div></div>
+    </div>
+    <div class="scene" id="t3">
+      <div class="ln" id="t3-title" style="top:250px"><span class="tx" style="font-size:104px">ชาร์จพลังเต็ม!</span></div>
+    </div>
+    <div class="scene" id="t4">
+      <div class="ln" id="t4-t1" style="top:200px"><span class="tx" style="font-size:176px;color:var(--coral)">โมจิ</span></div>
+      <div class="ln" id="t4-t2" style="top:440px"><span class="tx" style="font-size:104px">สู้วันจันทร์!</span></div>
+      <svg id="t4-under" viewBox="0 0 560 50" style="position:absolute;left:260px;top:595px;width:560px;height:50px;overflow:visible;opacity:0">
+        <path id="under-line" d="M8 30 C 80 6, 150 46, 230 24 S 380 6, 440 28 S 520 40, 552 18" fill="none" stroke="#ff8a7a" stroke-width="12" stroke-linecap="round"/>
+      </svg>
+      <div class="ln" id="t4-pill" style="top:1360px"><span class="pill"><span class="tx" style="font-size:58px">ติดตามตอนต่อไป ♡</span></span></div>
+    </div>
+  </div>
+</div>
+<div id="scrub"><input type="range" min="0" max="15" step="0.0333" value="0"><span>0.00s</span></div>
+
+<script type="module">
+  // Every frame is a pure function of t (seconds): render(t) poses the 3D world, draws it once, and updates the text layer.
+  import * as THREE from 'three';
+  import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+  const $ = (s) => document.querySelector(s);
+  const { ease, clamp } = FX;
+  const DUR = 15, W = 1080, H = 1920;
+  const MOCHI = 1.05;                                      // Mochi's size; sets and camera are laid out around it
+  const C = { white: '#fffdf8', pink: '#ff9eb5', ink: '#2b2b2b', peach: '#ffb4a2', mint: '#a8e6cf', butter: '#ffe08a', sky: '#a0d2ff',
+              coral: '#ff8a7a', wall: '#fff3e3', floor: '#f1e2cc', coffee: '#8a5a3c', mouth: '#ff7a8a', counter: '#ffd6c9', steam: '#e9e2da' };
+
+  // ---- renderer: toon shading (3 light bands) + black inverted-hull outlines ---------------------
+  const renderer = new THREE.WebGLRenderer({ canvas: $('#gl'), antialias: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(1);
+  renderer.setSize(W, H, false);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const world = new THREE.Scene();
+  world.background = new THREE.Color(C.wall);
+  const camera = new THREE.PerspectiveCamera(38, W / H, 0.1, 200);
+  world.add(new THREE.HemisphereLight('#ffffff', '#f0dcc4', 1.7));
+  const sun = new THREE.DirectionalLight('#ffffff', 2.4);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 40 });
+  sun.shadow.radius = 6;
+  sun.shadow.intensity = 0.45;                             // soft, light shadows for a cute look
+  world.add(sun, sun.target);
+
+  const bands = new THREE.DataTexture(new Uint8Array([150, 210, 255]), 3, 1, THREE.RedFormat);
+  bands.minFilter = bands.magFilter = THREE.NearestFilter;
+  bands.needsUpdate = true;
+  const mats = new Map();
+  const toon = (c) => mats.get(c) ?? mats.set(c, new THREE.MeshToonMaterial({ color: c, gradientMap: bands })).get(c);
+  const flat = (c) => new THREE.MeshBasicMaterial({ color: c });
+  const hull = new THREE.MeshBasicMaterial({ color: C.ink, side: THREE.BackSide });
+  function part(geo, color, { outline = 0.022, cast = true, basic = false } = {}) {
+    const m = new THREE.Mesh(geo, basic ? flat(color) : toon(color));
+    m.castShadow = cast;
+    if (outline) {
+      geo.computeBoundingBox();                          // the hull grows from the origin, so centre the geometry first
+      const c = geo.boundingBox.getCenter(new THREE.Vector3());
+      if (c.length() > 1e-3) { geo.translate(-c.x, -c.y, -c.z); m.userData.offset = c; }
+      geo.computeBoundingSphere();
+      const o = new THREE.Mesh(geo, hull);
+      o.scale.setScalar(1 + outline / geo.boundingSphere.radius);
+      m.add(o);
+    }
+    return m;
+  }
+  const at = (obj, x, y, z, parent) => { obj.position.set(x, y, z); if (obj.userData.offset) obj.position.add(obj.userData.offset.clone().applyQuaternion(obj.quaternion)); parent?.add(obj); return obj; };
+  const rbox = (w, h, d, r = 0.12) => new RoundedBoxGeometry(w, h, d, 4, Math.min(r, w / 2, h / 2, d / 2));
+  const sphere = (r) => new THREE.SphereGeometry(r, 40, 28);
+  function shape2D(points, depth = 0.08) {               // extruded doodle shapes: stars and hearts
+    const s = new THREE.Shape();
+    s.moveTo(...points[0]);
+    for (let i = 1; i < points.length; i += 3) s.bezierCurveTo(...points[i], ...points[i + 1], ...points[i + 2]);
+    const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 3 });
+    g.center();
+    return g;
+  }
+  const STAR = shape2D([[0, 0.3], [0.04, 0.04], [0.04, 0.04], [0.3, 0], [0.04, -0.04], [0.04, -0.04], [0, -0.3], [-0.04, -0.04], [-0.04, -0.04], [-0.3, 0], [-0.04, 0.04], [-0.04, 0.04], [0, 0.3]]);
+  const HEART = shape2D([[0, -0.18], [-0.34, 0.02], [-0.2, 0.3], [0, 0.14], [0.2, 0.3], [0.34, 0.02], [0, -0.18]]);
+
+  // ---- Mochi: one round body, swappable eyes/mouth, a right arm that can lift ---------------------
+  function makeMochi() {
+    const root = new THREE.Group(), body = new THREE.Group();
+    root.add(body);
+    body.scale.setScalar(MOCHI);
+    const b = at(part(sphere(0.6), C.white, { outline: 0.03 }), 0, 0.55, 0, body);
+    b.scale.set(1.15, 0.92, 1);
+    for (const s of [-1, 1]) {
+      const ear = at(part(new THREE.ConeGeometry(0.2, 0.4, 28), C.white), 0.36 * s, 1.04, -0.02, body);
+      ear.rotation.z = -0.38 * s;
+      const inner = at(part(new THREE.ConeGeometry(0.11, 0.24, 20), C.pink, { outline: 0, cast: false }), 0.35 * s, 1.0, 0.1, body);
+      inner.rotation.z = -0.38 * s;
+      const cheek = at(part(sphere(0.08), C.pink, { outline: 0, cast: false, basic: true }), 0.37 * s, 0.5, 0.5, body);
+      cheek.scale.set(1.3, 0.7, 0.3); cheek.rotation.y = 0.55 * s;
+      for (const dy of [0.04, -0.04]) {
+        const w = at(new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.24), flat(C.ink)), 0.62 * s, 0.5 + dy, 0.36, body);
+        w.rotation.z = Math.PI / 2 + dy * 2 * s; w.rotation.y = -0.5 * s;
+      }
+      at(part(sphere(0.13), C.white), 0.24 * s, 0.07, 0.45, body).scale.set(1.1, 0.75, 1);
+    }
+    at(part(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.5, 0.2, -0.3), new THREE.Vector3(0.85, 0.4, -0.45), new THREE.Vector3(0.82, 0.85, -0.4)]), 24, 0.095, 12), C.white), 0, 0, 0, body);
+
+    const ink = flat(C.ink), white = flat('#ffffff');
+    const pair = (fn) => { const g = new THREE.Group(); for (const s of [-1, 1]) fn(g, s); body.add(g); return g; };
+    const arc = (r, tube, up) => { const m = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 8, 24, Math.PI), ink); if (!up) m.rotation.z = Math.PI; return m; };
+    const eyes = {
+      open: pair((g, s) => { at(new THREE.Mesh(sphere(0.075), ink), 0.2 * s, 0.62, 0.55, g).scale.set(1, 1.1, 0.5); at(new THREE.Mesh(sphere(0.022), white), 0.2 * s + 0.025, 0.65, 0.59, g); }),
+      sparkle: pair((g, s) => {
+        at(new THREE.Mesh(sphere(0.105), ink), 0.2 * s, 0.62, 0.55, g).scale.set(1, 1.1, 0.5);
+        at(new THREE.Mesh(sphere(0.036), white), 0.2 * s + 0.035, 0.665, 0.6, g); at(new THREE.Mesh(sphere(0.017), white), 0.2 * s - 0.03, 0.585, 0.6, g);
+      }),
+      happy: pair((g, s) => at(arc(0.07, 0.017, true), 0.2 * s, 0.6, 0.565, g)),
+      sleep: pair((g, s) => at(arc(0.07, 0.017, false), 0.2 * s, 0.64, 0.565, g)),
+      tired: pair((g, s) => { at(new THREE.Mesh(sphere(0.075), ink), 0.2 * s, 0.6, 0.55, g).scale.set(1, 0.5, 0.5); at(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.022, 0.03), ink), 0.2 * s, 0.635, 0.57, g); }),
+    };
+    const mouths = {
+      w: pair((g, s) => at(arc(0.04, 0.012, false), 0.04 * s, 0.505, 0.59, g)),
+      sleep: (() => { const g = new THREE.Group(); at(arc(0.035, 0.012, false), 0, 0.5, 0.59, g); body.add(g); return g; })(),
+      open: (() => { const g = new THREE.Group(); at(new THREE.Mesh(sphere(0.066), flat(C.mouth)), 0, 0.49, 0.575, g).scale.set(1.2, 1, 0.4); body.add(g); return g; })(),
+    };
+    const arm = at(new THREE.Group(), 0.58, 0.42, 0.18, body);          // pivot at the shoulder
+    at(part(new THREE.CapsuleGeometry(0.09, 0.3, 6, 14), C.white), 0, 0.24, 0, arm);
+    at(part(sphere(0.12), C.white), 0, 0.48, 0, arm);
+    arm.visible = false;
+    return {
+      root, body, arm,
+      face(e, m) { for (const k in eyes) eyes[k].visible = k === e; for (const k in mouths) mouths[k].visible = k === m; },
+    };
+  }
+
+  // ---- shared room: floor + tall back wall (sets sit side by side along x, the title set floats above) ----
+  const floor = at(new THREE.Mesh(new THREE.PlaneGeometry(120, 40), toon(C.floor)), 30, 0, 0, world);
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+  const wall = at(new THREE.Mesh(new THREE.PlaneGeometry(120, 60), toon(C.wall)), 30, 20, -1.4, world);
+  wall.receiveShadow = true;
+  const dots = new THREE.InstancedMesh(new THREE.CircleGeometry(0.035, 12), flat('#efdcc4'), 6000);
+  { let i = 0; const m = new THREE.Matrix4();                // polka dots behind each set
+    for (const [cx, y0, y1] of [[0, 0.3, 7], [20, 0.3, 7], [40, 0.3, 27]])
+      for (let x = cx - 4; x <= cx + 4; x += 0.42) for (let y = y0; y < y1; y += 0.42) dots.setMatrixAt(i++, m.makeTranslation(x, y, -1.39));
+    dots.count = i; }
+  world.add(dots);
+
+  // ---- set 1 · bedroom (x = 0) ---------------------------------------------------------------
+  const S1 = at(new THREE.Group(), 0, 0, 0, world);
+  at(part(rbox(3.4, 0.6, 2.0), C.peach), 0, 0.3, -0.2, S1);
+  at(part(rbox(0.35, 1.7, 2.0), C.peach), -1.75, 0.85, -0.2, S1);
+  at(part(rbox(1.0, 0.32, 1.2, 0.15), '#ffffff'), -1.0, 0.76, -0.4, S1);
+  const m1 = makeMochi(); at(m1.root, -0.75, 0.55, -0.25, S1); m1.face('sleep', 'sleep');
+  const blanket = at(new THREE.Group(), 0.15, 0.6, -0.15, S1);
+  at(part(rbox(2.9, 0.7, 1.95, 0.28), C.sky), 0, 0.15, 0, blanket);
+  for (const y of [0.05, 0.3]) at(new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.06, 0.02), flat('#ffffff')), 0.05, y, 0.99, blanket);
+  at(part(rbox(1.3, 0.1, 0.55, 0.04), C.butter), 0.95, 2.55, -1.1, S1);           // wall shelf
+  const clock = at(new THREE.Group(), 0.95, 2.62, -1.0, S1);
+  const clockBody = at(new THREE.Group(), 0, 0, 0, clock);
+  { const face = at(part(new THREE.CylinderGeometry(0.42, 0.42, 0.26, 40), C.butter), 0, 0.5, 0, clockBody); face.rotation.x = Math.PI / 2;
+    const dial = at(part(new THREE.CylinderGeometry(0.33, 0.33, 0.28, 40), '#ffffff', { outline: 0.012 }), 0, 0.5, 0.01, clockBody); dial.rotation.x = Math.PI / 2;
+    for (const s of [-1, 1]) {
+      at(part(sphere(0.15), C.butter), 0.3 * s, 0.9, 0, clockBody);
+      const leg = at(part(new THREE.CylinderGeometry(0.035, 0.035, 0.2), C.ink, { outline: 0 }), 0.25 * s, 0.06, 0, clockBody); leg.rotation.z = 0.4 * s;
+    }
+    at(part(new THREE.BoxGeometry(0.035, 0.22, 0.03), C.ink, { outline: 0 }), 0, 0.6, 0.16, clockBody);
+    const mh = at(part(new THREE.BoxGeometry(0.03, 0.17, 0.03), C.ink, { outline: 0 }), 0.07, 0.48, 0.16, clockBody); mh.rotation.z = -1.2; }
+  const ringLines = at(new THREE.Group(), 0, 0.5, 0.05, clock);
+  for (const s of [-1, 1]) for (const r of [0.62, 0.78]) {
+    const a = at(new THREE.Mesh(new THREE.TorusGeometry(r, 0.025, 6, 16, 0.9), flat(C.ink)), 0, 0, 0, ringLines);
+    a.rotation.z = s > 0 ? -0.45 : Math.PI - 0.45;
+  }
+
+  // ---- set 2 · kitchen (x = 20) --------------------------------------------------------------
+  const S2 = at(new THREE.Group(), 20, 0, 0, world);
+  at(part(rbox(2.0, 0.85, 1.1), C.counter), 1.25, 0.425, -0.3, S2);
+  const m2 = makeMochi(); at(m2.root, 0, 0, 0.2, S2); m2.face('tired', 'sleep');
+  const mug = at(new THREE.Group(), 0.85, 0.85, 0.0, S2);                    // origin at the mug's base
+  { at(part(new THREE.CylinderGeometry(0.25, 0.23, 0.55, 36), C.mint), 0, 0.275, 0, mug);
+    at(new THREE.Mesh(new THREE.CylinderGeometry(0.215, 0.215, 0.02, 32), flat(C.coffee)), 0, 0.52, 0, mug);
+    const h = part(new THREE.TorusGeometry(0.14, 0.045, 10, 24, Math.PI), C.mint); h.rotation.z = -Math.PI / 2; at(h, 0.25, 0.28, 0, mug);
+    at(part(HEART, C.pink, { outline: 0, cast: false }), 0, 0.27, 0.25, mug).scale.setScalar(0.42); }
+  const steam = at(new THREE.Group(), 0, 0.6, 0, mug);
+  const steamLines = [-0.1, 0, 0.1].map((x, i) => at(part(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(
+    [0, 1, 2, 3, 4].map((k) => new THREE.Vector3(Math.sin(k * 1.6 + i) * 0.05, k * 0.14, 0))), 30, 0.022, 8), C.steam, { outline: 0, cast: false }), x, 0, 0, steam));
+  const sparks = [[1.65, 1.3, 0.2], [0.3, 1.5, 0.3], [1.9, 0.75, 0.5]].map(([x, y, z]) => at(part(STAR, C.butter, { outline: 0.012 }), x, y, z, S2));
+
+  // ---- set 3 · full power (x = 40) -----------------------------------------------------------
+  const S3 = at(new THREE.Group(), 40, 0, 0, world);
+  const rays = at(new THREE.Group(), 0, 1.6, -1.3, S3);
+  for (let i = 0; i < 16; i += 2) {
+    const a = (i / 16) * Math.PI * 2;
+    at(new THREE.Mesh(new THREE.CircleGeometry(9, 1, a, Math.PI / 8), new THREE.MeshBasicMaterial({ color: C.butter, transparent: true, opacity: 0.6 })), 0, 0, 0, rays);
+  }
+  const m3 = makeMochi(); at(m3.root, 0, 0, 0.3, S3); m3.face('sparkle', 'open');
+  const DOODLES = [[-1.35, 2.6, STAR, C.butter], [1.4, 2.5, HEART, C.pink], [-1.5, 1.4, HEART, C.mint], [1.55, 1.3, STAR, C.sky],
+                   [-1.2, 0.4, STAR, C.pink], [1.3, 0.5, HEART, C.peach], [-0.6, 3.1, HEART, C.sky], [0.7, 3.15, STAR, C.mint]]
+    .map(([x, y, g, c]) => at(part(g, c, { outline: 0.015 }), x, y, 0.6, S3));
+  const battery = at(new THREE.Group(), 0, 0.42, 1.7, S3);
+  at(part(rbox(1.5, 0.62, 0.28, 0.12), '#ffffff'), 0, 0, 0, battery);
+  at(part(rbox(0.12, 0.26, 0.2, 0.04), C.ink, { outline: 0 }), 0.81, 0, 0, battery);
+  const segs = [0, 1, 2, 3, 4].map((k) => at(part(rbox(0.22, 0.44, 0.3, 0.05), C.mint, { outline: 0.01 }), -0.52 + k * 0.26, 0, 0.02, battery));
+  const confetti = new THREE.InstancedMesh(new THREE.BoxGeometry(0.07, 0.04, 0.01), new THREE.MeshBasicMaterial(), 80);
+  { const r = FX.rng(11), cols = [C.butter, C.pink, C.mint, C.sky, C.peach];
+    confetti.userData.p = Array.from({ length: 80 }, (_, i) => {
+      confetti.setColorAt(i, new THREE.Color(cols[i % cols.length]));
+      const a = r() * Math.PI * 2, up = 2.5 + r() * 3;
+      return { vx: Math.cos(a) * (1 + r() * 2.2), vz: Math.sin(a) * 1.2 + 1.2, vy: up, spin: (r() - 0.5) * 20 };
+    }); }
+  at(confetti, 0, 0, 0, S3);
+
+  // ---- set 4 · title on a cloud (x = 40, y = 20) ---------------------------------------------
+  const S4 = at(new THREE.Group(), 40, 20, 0, world);
+  for (const [x, y, z, s] of [[0, -0.2, 0.2, 1.3], [-0.9, -0.3, 0.1, 0.8], [0.95, -0.3, 0.1, 0.85], [-0.4, -0.45, 0.6, 0.75], [0.5, -0.45, 0.6, 0.8]])
+    at(part(sphere(0.6), '#ffffff', { outline: 0.02, cast: false }), x, y, z, S4).scale.set(s * 1.3, s * 0.55, s);
+  const m4 = makeMochi(); at(m4.root, 0, 0.0, 0.3, S4); m4.root.traverse((o) => { o.castShadow = false; }); m4.face('happy', 'w'); m4.arm.visible = true;
+  const hearts = [[-1.4, 0, C.pink], [-0.7, 0, C.peach], [0.8, 0, C.sky], [1.4, 0, C.pink], [0.1, 0, C.butter]]
+    .map(([x, y, c]) => at(part(HEART, c, { outline: 0.015 }), x, y, -0.4, S4));
+
+  // ---- timeline ------------------------------------------------------------------------------
+  // Camera shots: [time, position, look-at]. Transitions are camera moves: whip-pan, dolly-through, crane-up.
+  const SHOT = {
+    bed:     { p: [0, 2.4, 11.5],   l: [0, 1.7, 0] },
+    kitchen: { p: [20.5, 2.3, 11.2], l: [20.5, 1.6, 0] },
+    power:   { p: [40, 2.2, 11.2],   l: [40, 1.6, 0] },
+    title:   { p: [40, 21.2, 10.8], l: [40, 20.5, 0] },
+  };
+  const WHIP = [2.85, 0.55], DOLLY = [6.7, 0.6], CRANE = [10.55, 0.75];
+  const SIP = { step: 4.9, arm: 5.3, lift: 5.45, tilt: 5.9 };
+  const SEG_AT = (k) => 7.65 + k * 0.24;
+  // Text layer: [scene, in, out] fades + [element, start, {from, ease, sfx}] entrances (same as the 2D version)
+  const SCENES = [['#t1', -1, 2.85, { exit: 'whip', dur: 0.55 }], ['#t2', 3.3, 6.5], ['#t3', 7.4, 10.4], ['#t4', 11.2, 99]];
+  const ITEMS = [
+    ['#t1-date',   0.0,  { y: -60, ease: 'back' }],
+    ['#t1-ring',   0.45, { dur: 0.15 }],
+    ['#t1-bubble', 1.45, { scale: 0.3, ease: 'back', sfx: 'pop' }],
+    ['#t2-title',  3.35, { dur: 0.2 }],
+    ['#t2-sip',    6.1,  { scale: 0.3, ease: 'back', sfx: 'pop', vol: 0.6 }],
+    ['#t3-title',  8.9,  { dur: 0.2, sfx: 'impact' }],
+    ['#t4-t1',     11.3, { y: -120, ease: 'spring', sfx: 'pop' }],
+    ['#t4-t2',     11.6, { dur: 0.2 }],
+    ['#t4-under',  12.0, { dur: 0.1 }],
+    ['#t4-pill',   12.5, { scale: 0.3, ease: 'back', sfx: 'ding', vol: 0.6 }],
+  ];
+  FX.cues(ITEMS, [
+    [0.2, 'pop', 0.5], [0.45, 'ring', 0.55],
+    [WHIP[0], 'whoosh', 0.8], [3.4, 'pop', 0.4], [4.2, 'pop', 0.6], [4.5, 'ding', 0.35], [SIP.tilt + 0.05, 'sip', 0.9],
+    [DOLLY[0], 'whoosh', 0.7], [7.05, 'impact', 0.6], [7.35, 'whoosh', 0.5],
+    ...DOODLES.map((_, i) => [7.15 + i * 0.07, 'pop', 0.22]), ...[0, 1, 2, 3, 4].map((k) => [SEG_AT(k), 'tick', 0.9]), [8.95, 'ding', 0.6],
+    [CRANE[0], 'whoosh', 0.8], [11.3, 'pop', 0.6],
+  ]);
+
+  const v3 = (a) => new THREE.Vector3(...a);
+  const mix = (a, b, p) => a.clone().lerp(b, p);
+  function cameraAt(t) {
+    let pos, look;
+    const shot = (s) => [v3(s.p), v3(s.l)];
+    const [bp, bl] = shot(SHOT.bed), [kp, kl] = shot(SHOT.kitchen), [pp, pl] = shot(SHOT.power), [tp, tl] = shot(SHOT.title);
+    const w = ease.inOut((t - WHIP[0]) / WHIP[1]);
+    const d = (t - DOLLY[0]) / DOLLY[1], c = ease.inOut((t - CRANE[0]) / CRANE[1]);
+    if (t < DOLLY[0]) { pos = mix(bp, kp, w); look = mix(bl, kl, w); }
+    else if (d < 0.5) {                                          // dolly into the coffee...
+      const p = ease.inOut(d * 2) ** 2, cup = mug.localToWorld(new THREE.Vector3(0, 0.45, 0));
+      pos = mix(kp, cup.clone().add(new THREE.Vector3(0, 0.15, 0.35)), p); look = mix(kl, cup, p);
+    } else if (t < CRANE[0]) {                                   // ...and back out of Mochi's sparkling face
+      const p = 1 - (1 - ease.out((d - 0.5) * 2)) ** 2, face = v3([40, 0.95, 1.2]);
+      pos = mix(face.clone().add(new THREE.Vector3(0, 0.1, 0.9)), pp, p); look = mix(face, pl, p);
+    } else { pos = mix(pp, tp, c); look = mix(pl, tl, c); }
+    // slow push-in over the whole clip + impact shakes
+    pos.lerp(look, 0.07 * t / DUR);
+    for (const [s0, amp] of [[0.45, 0.06], [8.9, 0.05], [11.3, 0.03]]) {
+      const s = t - s0; if (s < 0 || s > 0.7) continue;
+      const k = amp * Math.exp(-7 * s); pos.x += k * Math.sin(s * 71); pos.y += k * Math.cos(s * 53);
+    }
+    camera.position.copy(pos); camera.lookAt(look);
+    sun.target.position.copy(look); sun.position.copy(look).add(new THREE.Vector3(3, 7, 6));
+  }
+
+  const proj = (obj, off) => { const v = new THREE.Vector3(); obj.getWorldPosition(v); v.add(off).project(camera); return [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H]; };
+
+  function render(t) {
+    // set 1 · alarm
+    const ring = clamp((t - 0.45) / 0.08) * (1 - clamp((t - 2.2) / 0.4));
+    clockBody.rotation.z = 0.18 * ring * Math.sin(t * 55);
+    clockBody.position.y = 0.04 * ring * Math.abs(Math.sin(t * 38));
+    ringLines.visible = ring > 0.05 && Math.sin(t * 40) > -0.3;
+    clock.scale.setScalar(ease.back((t - 0.15) / 0.5));
+    blanket.scale.y = 1 + 0.025 * Math.sin(t * 3.2);
+    m1.body.position.y = 0.02 * Math.sin(t * 3.2);
+
+    // set 2 · walk in, step up, lift the mug, sip
+    const walkIn = ease.out((t - 3.0) / 1.1), step = ease.inOut((t - SIP.step) / 0.6);
+    const walking = Math.max(t > 3 && t < 4.1 ? 1 : 0, Math.sin(Math.PI * step));
+    m2.root.position.x = -2.6 * (1 - walkIn) - 0.55 + 0.55 * step;
+    m2.body.position.y = 0.12 * walking * Math.abs(Math.sin(t * 9));
+    m2.body.rotation.z = 0.08 * walking * Math.sin(t * 9);
+    m2.body.rotation.y = 0.35 * (1 - step) * (t < 4.4 ? 1 : 0.6);
+    const armUp = ease.back((t - SIP.arm) / 0.3), lift = ease.inOut((t - SIP.lift) / 0.45), tilt = ease.inOut((t - SIP.tilt) / 0.3);
+    m2.arm.visible = t >= SIP.arm;
+    m2.arm.rotation.z = -2.4 * (1 - armUp) + 0.5;
+    mug.scale.setScalar(FX.ease.spring((t - 4.2) / 0.8));
+    const mugHome = new THREE.Vector3(0.85, 0.85, 0.0), mugAtMouth = new THREE.Vector3(0.45, 0.25, 0.95);
+    mug.position.copy(mix(mugHome, mugAtMouth, lift)).add(new THREE.Vector3(0, 0.5 * Math.sin(Math.PI * lift), 0));
+    mug.rotation.z = 0.75 * tilt;
+    m2.face(tilt > 0.5 ? 'happy' : 'tired', tilt > 0.5 ? 'w' : 'sleep');
+    steamLines.forEach((s, i) => { s.scale.y = ease.out((t - 4.6 - i * 0.15) / 0.5); s.position.y = 0.04 * Math.sin(t * 3 + i); });
+    steam.visible = tilt < 0.3;
+    sparks.forEach((s, i) => { s.scale.setScalar(ease.back((t - 4.5 - i * 0.1) / 0.4) * (1 - lift) * (0.8 + 0.25 * Math.sin(t * 5 + i))); s.rotation.z = t * 1.5; });
+
+    // set 3 · full power
+    rays.rotation.z = t * 0.25;
+    rays.scale.setScalar(ease.out((t - 6.9) / 0.8));
+    const hop = Math.abs(Math.sin((t - 7) * 5));
+    m3.body.position.y = 0.45 * hop;
+    m3.body.scale.set(MOCHI * (1 + 0.06 * (1 - hop)), MOCHI * (1 - 0.06 * (1 - hop)), MOCHI);
+    DOODLES.forEach((d, i) => { d.scale.setScalar(ease.back((t - 7.15 - i * 0.07) / 0.45) * (1 + 0.08 * Math.sin(t * 5 + i))); d.rotation.y = t * 1.2 + i; d.rotation.z = (i % 2 ? 1 : -1) * t * 0.6; });
+    battery.scale.setScalar(ease.back((t - 7.35) / 0.5));
+    segs.forEach((s, k) => { s.scale.y = Math.max(0.001, ease.back((t - SEG_AT(k)) / 0.2)); s.visible = t >= SEG_AT(k); });
+    { const s = t - 8.92, m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+      confetti.visible = s > 0 && s < 2.4;
+      confetti.userData.p.forEach((p, i) => {
+        const dr = (1 - Math.exp(-2 * s)) / 2;
+        e.set(p.spin * s, p.spin * 0.7 * s, 0);
+        m.compose(new THREE.Vector3(p.vx * dr, 1.9 + p.vy * dr - 2.2 * s * s, 0.4 + p.vz * dr), q.setFromEuler(e), new THREE.Vector3(1, 1, 1));
+        confetti.setMatrixAt(i, m);
+      });
+      confetti.instanceMatrix.needsUpdate = true; }
+    // the jump that starts the crane-up: Mochi leaves set 3 upward and lands on the cloud
+    const jump = clamp((t - CRANE[0]) / 0.4);
+    if (t > CRANE[0]) m3.body.position.y = 6 * jump * jump;
+
+    // set 4 · title
+    const land = FX.ease.spring((t - 11.15) / 0.8);
+    m4.root.position.y = 2.5 * (1 - land);
+    const squash = 0.08 * Math.max(0, Math.sin(Math.PI * clamp((t - 11.3) / 0.25)));
+    m4.body.scale.set(MOCHI * (1 + squash), MOCHI * (1 - squash), MOCHI);
+    m4.arm.rotation.z = 0.3 + 0.35 * Math.sin(Math.max(0, t - 11.7) * 8);
+    hearts.forEach((h, i) => { const ph = ((t - 11) * 0.25 + i * 0.21) % 1; h.position.y = -0.3 + ph * 3.2; h.scale.setScalar(Math.sin(Math.PI * ph) * (0.8 + 0.2 * Math.sin(t * 3 + i))); h.rotation.y = t + i; });
+
+    cameraAt(t);
+    renderer.render(world, camera);
+
+    // text layer
+    FX.scenes(SCENES, t);
+    if (t >= 3.4) $('#t1').style.opacity = 0;                      // fx.js 'whip' exit leaves the scene opaque off-screen
+    FX.items(ITEMS, t);
+    FX.chars('#t1-ring .tx', t, 0.45, { each: 0.06, y: -50 });
+    $('#t1-ring').style.transform += ` rotate(${-5 + 2 * Math.sin(t * 9)}deg)`;
+    const [hx, hy] = proj(m1.root, new THREE.Vector3(0.55, 1.1, 0));
+    [0, 1, 2].forEach((i) => {
+      const ph = (t * 0.55 + i / 3) % 1, z = $('#z' + i);
+      z.style.opacity = (t < 2.7 ? 1 : 0) * Math.sin(Math.PI * ph);
+      z.style.transform = `translate(${hx + ph * 90 + i * 30}px, ${hy - ph * 190}px) rotate(${-12 + 18 * ph}deg)`;
+    });
+    FX.words('#t2-title .tx', t, 3.35, { each: 0.12 });
+    FX.words('#t3-title .tx', t, 8.9, { each: 0.1, y: 70 });
+    FX.words('#t4-t2 .tx', t, 11.6, { each: 0.12 });
+    FX.draw('#under-line', t, 12.0, 0.6);
+    $('#t4-pill .pill').style.transform = `scale(${1 + 0.03 * Math.sin(Math.max(0, t - 13) * 6)})`;
+  }
+  window.render = render;
+
+  // ?render → driven by render.mjs · ?t=5 → freeze at 5s · otherwise loop with a scrubber
+  const params = new URLSearchParams(location.search);
+  if (params.has('render')) { document.body.classList.add('render'); render(0); }
+  else {
+    const fit = () => {
+      const s = Math.min(innerWidth / 1080, (innerHeight - 40) / 1920);
+      $('#stage').style.transform = `translate(${(innerWidth - 1080 * s) / 2}px, 0) scale(${s})`;
+    };
+    fit(); addEventListener('resize', fit);
+    const bar = $('#scrub input'), label = $('#scrub span');
+    const show = (t) => { render(t); bar.value = t; label.textContent = t.toFixed(2) + 's'; };
+    let t0 = performance.now(), dragging = false;
+    bar.addEventListener('input', () => { dragging = true; show(+bar.value); });
+    bar.addEventListener('change', () => { dragging = false; t0 = performance.now() - bar.value * 1000; });
+    const loop = () => { if (!dragging) show(((performance.now() - t0) / 1000) % DUR); requestAnimationFrame(loop); };
+    if (params.has('t')) show(+params.get('t')); else loop();
+  }
+</script>
+</body>
+</html>

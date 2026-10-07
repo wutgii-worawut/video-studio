@@ -12,6 +12,7 @@ sfx/                       เสียงเอฟเฟกต์ในตั�
 styles/                    แนวภาพที่ใช้ซ้ำได้ 1 แนว = 1 โฟลเดอร์ (style.md + example.png + โค้ดเฉพาะแนว)
   cute-doodle/             Kawaii Doodle: เส้นสั่น line boil (boil.js) พาสเทล กระดาษลายจุด ตัวละครกลมๆ
   dark-tech/               Dark Tech / Terminal: พื้นมืด แสงฟุ้งนีออน terminal การ์ดคำสั่ง
+  manga-action/            มังงะแอ็กชัน: เส้นหมึกหนา cel shading เส้นความเร็ว impact frame ตัวหนังสือเสียง (manga.js)
 .claude/skills/
   check-computer/          /check-computer        เช็ก/เตรียมเครื่อง (ครั้งแรก/ย้ายเครื่อง)
   make-video/              /make-video <ชื่อ>     ทำ/แก้คลิป: ขั้นตอน ลำดับเรื่อง กฎการขยับ เสียง
