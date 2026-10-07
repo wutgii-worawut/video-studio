@@ -35,6 +35,7 @@
   #s4 { background:var(--paper); background-image:radial-gradient(#f3dfc7 4px, transparent 5px); background-size:60px 60px; }  /* opaque: the circle reveal covers scene 3 */
 </style>
 <script src="../../../lib/fx.js"></script>
+<script src="../../../styles/cute-doodle/mochi.js"></script>
 </head>
 <body>
 <script src="../../../styles/cute-doodle/boil.js"></script>  <!-- line boil: .boil drawings, .boilT text -->
@@ -143,41 +144,7 @@
   const { ease, clamp } = FX;
   const DUR = 15;
 
-  // ---- drawing Mochi -------------------------------------------------------------------------
-  const EYES = {
-    sleep:   '<path class="o" d="M140 242 Q160 256 180 242 M220 242 Q240 256 260 242" fill="none"/>',
-    tired:   '<path class="o" d="M143 234 H177 M223 234 H257" fill="none"/><path d="M146 236 A14 13 0 0 0 174 236 Z M226 236 A14 13 0 0 0 254 236 Z" fill="#2b2b2b"/>',
-    sparkle: '<circle cx="160" cy="236" r="23" fill="#2b2b2b"/><circle cx="240" cy="236" r="23" fill="#2b2b2b"/>'
-           + '<circle cx="168" cy="227" r="8" fill="#fff"/><circle cx="153" cy="245" r="4" fill="#fff"/><circle cx="248" cy="227" r="8" fill="#fff"/><circle cx="233" cy="245" r="4" fill="#fff"/>',
-    happy:   '<path class="o" d="M142 246 Q160 224 178 246 M222 246 Q240 224 258 246" fill="none"/>',
-  };
-  const MOUTH = {
-    sleep: '<path class="o" d="M192 276 Q200 284 208 276" fill="none" stroke-width="6"/>',
-    w:     '<path class="o" d="M184 268 Q192 280 200 268 Q208 280 216 268" fill="none" stroke-width="6"/>',
-    open:  '<path class="o" d="M180 264 Q200 306 220 264 Z" fill="#ff7a8a" stroke-width="6"/>',
-  };
-  // wave: right paw raised · arm: right paw down plus a hidden raised arm (${id}-paw / ${id}-arm) to toggle
-  // alt: a second face (${id}-face2) to swap in, e.g. eyes closed while sipping
-  function mochi(eyes, mouth, { wave = false, arm = false, alt = null, id = '' } = {}) {
-    const paw = (x, y, pid = '') => `<ellipse ${pid ? `id="${pid}"` : ''} class="o" cx="${x}" cy="${y}" rx="28" ry="19" fill="#fffdf8"/>`;
-    const raised = (gid, hidden) => `<g id="${gid}" style="transform-origin:0% 100%" ${hidden ? 'opacity="0"' : ''}>
-          <path class="o" d="M290 300 C 316 276, 330 250, 334 222" fill="none" stroke-width="34"/>
-          <path d="M290 300 C 316 276, 330 250, 334 222" fill="none" stroke="#fffdf8" stroke-width="19" stroke-linecap="round"/>
-          <ellipse class="o" cx="336" cy="214" rx="24" ry="22" fill="#fffdf8"/></g>`;
-    const face = `<g id="${id}-face">${EYES[eyes]}${MOUTH[mouth]}</g>`
-      + (alt ? `<g id="${id}-face2" opacity="0">${EYES[alt.eyes]}${MOUTH[alt.mouth]}</g>` : '');
-    const right = wave ? raised(`${id}-wave`, false) : arm ? paw(250, 340, `${id}-paw`) + raised(`${id}-arm`, true) : paw(250, 340);
-    return `
-      <path class="o" d="M310 320 C 382 312, 392 236, 350 214" fill="none" stroke-width="30"/>
-      <path d="M310 320 C 382 312, 392 236, 350 214" fill="none" stroke="#fffdf8" stroke-width="15" stroke-linecap="round"/>
-      <path class="o" d="M112 196 L118 106 L182 158 Z M288 196 L282 106 L218 158 Z" fill="#fffdf8"/>
-      <path d="M126 170 L128 132 L156 156 Z M274 170 L272 132 L244 156 Z" fill="#ff9eb5"/>
-      <path class="o" d="M80 330 C 58 228, 110 148, 200 148 C 290 148, 342 228, 320 330 C 300 372, 100 372, 80 330 Z" fill="#fffdf8"/>
-      <ellipse cx="128" cy="272" rx="20" ry="12" fill="#ff9eb5" opacity=".85"/><ellipse cx="272" cy="272" rx="20" ry="12" fill="#ff9eb5" opacity=".85"/>
-      <path class="o" d="M96 258 L60 250 M96 270 L58 274 M304 258 L340 250 M304 270 L342 274" fill="none" stroke-width="5"/>
-      ${face}
-      ${paw(150, 340)}${right}`;
-  }
+  const mochi = Mochi.svg;                                  // styles/cute-doodle/mochi.js
   $('#bed-mochi').innerHTML = mochi('sleep', 'sleep');
   $('#s2-mochi').innerHTML = `<g id="m2">${mochi('tired', 'sleep', { arm: true, alt: { eyes: 'happy', mouth: 'w' }, id: 'm2' })}</g>`;
   $('#s3-mochi').innerHTML = `<g id="m3">${mochi('sparkle', 'open')}</g>`;

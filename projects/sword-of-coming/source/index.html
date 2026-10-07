@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>sword of coming</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mali:wght@600;700&family=Ma+Shan+Zheng&display=block" rel="stylesheet">
+<style>
+  :root { --paper:#fff8ec; --ink:#2b2b2b; --red:#d9332b; --blue:#3e6fb0; --butter:#ffe08a; --mint:#a8e6cf; --pink:#ff9eb5; --sky:#a0d2ff; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1080px; height:1920px; overflow:hidden; background:var(--paper); color:var(--ink); font-family:'Mali', sans-serif; }
+  #stage { position:absolute; left:0; top:0; width:1080px; height:1920px; overflow:hidden; background:var(--paper); transform-origin:0 0; }
+  #cam { position:absolute; inset:0; transform-origin:50% 50%; }
+  #scrub { position:fixed; left:12px; right:12px; bottom:12px; display:flex; gap:12px; align-items:center; font:600 14px/1 sans-serif; color:#333; z-index:9; }
+  #scrub input { flex:1; }
+  .render #scrub { display:none; }
+
+  /* every scene is solid paper with polka dots, so any transition (wipe/circle) covers the one below */
+  .scene { position:absolute; inset:0; opacity:0; background-color:var(--paper); background-image:radial-gradient(#e8d9c2 4px, transparent 5px); background-size:60px 60px; }
+  svg .o { stroke:var(--ink); stroke-width:8; stroke-linejoin:round; stroke-linecap:round; }
+  svg * { transform-box:fill-box; transform-origin:center; }
+  .art { position:absolute; opacity:0; overflow:visible; }
+  .ln { position:absolute; left:0; right:0; text-align:center; white-space:nowrap; opacity:0; }
+  .lb { position:absolute; white-space:nowrap; opacity:0; }
+  .tx { display:inline-block; font-weight:700; line-height:1.3;
+        text-shadow: -5px -5px 0 var(--paper), 5px -5px 0 var(--paper), -5px 5px 0 var(--paper), 5px 5px 0 var(--paper),
+                     0 -6px 0 var(--paper), 0 6px 0 var(--paper), -6px 0 0 var(--paper), 6px 0 0 var(--paper), 8px 9px 0 #00000022; }
+  .zh { font-family:'Ma Shan Zheng', 'Mali', serif; font-weight:400; }
+  .pill { display:inline-block; background:var(--butter); border:6px solid var(--ink); border-radius:999px; padding:6px 34px 12px; box-shadow:7px 8px 0 #00000026; }
+  .pill.white { background:#fff; } .pill.red { background:var(--red); color:#fff; } .pill.mint { background:var(--mint); } .pill.sky { background:var(--sky); } .pill.pink { background:var(--pink); }
+  .pill .tx { text-shadow:none; }
+  .photo { position:absolute; inset:0; background:#fff; border:7px solid var(--ink); border-radius:26px; padding:12px; box-shadow:10px 12px 0 #00000026; overflow:hidden; }
+  .photo .img { position:relative; width:100%; height:100%; border-radius:14px; overflow:hidden; background:#ddd; }
+  .photo img { position:absolute; inset:0; width:100%; height:100%; display:block; object-fit:cover; }
+  .photo::before { content:''; position:absolute; left:50%; top:-8px; width:150px; height:46px; margin-left:-75px; background:#ffe08acc; transform:rotate(-4deg); z-index:2; }
+  .seal { display:inline-block; background:var(--red); color:#fff; border-radius:12px; padding:2px 14px 8px; transform:rotate(-6deg); box-shadow:5px 6px 0 #00000026; }
+  #mochi { position:absolute; left:0; top:0; width:400px; height:400px; overflow:visible; transform-origin:0 0; }
+</style>
+<script src="../../../lib/fx.js"></script>
+<script src="../../../styles/cute-doodle/mochi.js"></script>
+<script src="voice.js" onerror="window.VOICE = null"></script>  <!-- made by: node render.mjs sword-of-coming voice -->
+</head>
+<body>
+<script src="../../../styles/cute-doodle/boil.js"></script>
+<div id="stage">
+<div id="cam">
+  <div id="scenes"></div>
+  <svg class="boil" id="clouds" viewBox="0 0 1080 1920" style="position:absolute;inset:0;width:1080px;height:1920px;overflow:visible;pointer-events:none"></svg>
+  <svg id="chibi-chen" class="boil" viewBox="0 0 300 360" style="position:absolute;left:0;top:0;width:240px;height:288px;overflow:visible;opacity:0"></svg>
+  <svg id="chibi-ning" class="boil" viewBox="0 0 300 360" style="position:absolute;left:0;top:0;width:240px;height:288px;overflow:visible;opacity:0"></svg>
+  <svg id="mochi" class="boil" viewBox="0 0 400 400"></svg>
+</div>
+</div>
+<div id="scrub"><input type="range" min="0" max="60" step="0.0333" value="0"><span>0.00s</span></div>
+
+<script>
+  // กระบี่จงมา ภาค 1 · Mochi (wuxia outfit) tells the story. Facts come only from brand/brand.md; pictures from brand/web/.
+  // Every frame is a pure function of t. Section start times live in AT: re-time to the voiceover by editing that one table.
+  const $ = (s) => document.querySelector(s);
+  const { ease, clamp } = FX;
+  const AT = { hook: 0, title: 6.2, town: 20.1, porcelain: 30.1, chen: 39.9, ning: 53.8, liu: 60.7, qi: 73.4, ending: 85.9, s2: 97.0 };   // synced to brand/voice.mp3
+  window.DUR = 107;                                          // voiceover is 105.2 s
+  window.STILLS = [4.6, 15, 27.5, 37, 48.5, 58.5, 69, 81, 93, 102];
+  const DUR = window.DUR;
+
+  // ---- building blocks ----------------------------------------------------------------------------
+  const SLIDES = [];                                         // [img id, from time] for the cross-fades
+  const scene = (id) => { $('#scenes').insertAdjacentHTML('beforeend', `<div class="scene" id="${id}"></div>`); return '#' + id; };
+  const add = (sc, html) => { $(sc).insertAdjacentHTML('beforeend', html); };
+  const line = (id, top, text, size, style = '', cls = '') => `<div class="ln" id="${id}" style="top:${top}px"><span class="tx boilT ${cls}" style="font-size:${size}px;${style}">${text}</span></div>`;
+  const label = (id, x, y, text, size = 40, kind = '') => `<div class="lb" id="${id}" style="left:${x}px;top:${y}px"><span class="pill ${kind}"><span class="tx" style="font-size:${size}px">${text}</span></span></div>`;
+  const seal = (id, x, y, zh, size = 52) => `<div class="lb" id="${id}" style="left:${x}px;top:${y}px;z-index:3"><span class="seal zh" style="font-size:${size}px">${zh}</span></div>`;
+  const shot = (id, list, x, y, w, h, tilt = 0) => `<div class="art" id="${id}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">
+      <div class="photo" style="transform:rotate(${tilt}deg)"><div class="img">${list.map(([at, n], k) => {
+        SLIDES.push([`${id}-${k}`, k ? at : -99]);
+        return n.startsWith('doodle:') ? `<div id="${id}-${k}" style="position:absolute;inset:0">${DOODLES[n.slice(7)]}</div>`
+                                       : `<img id="${id}-${k}" src="../brand/web/${n}.jpg">`; }).join('')}</div></div></div>`;
+  const svg = (id, x, y, w, h, vb, inner, cls = 'boil') => `<svg class="art ${cls}" id="${id}" viewBox="${vb}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">${inner}</svg>`;
+  // doodle slides for beats with no verified picture: the sword manual Liu Xianyang refused to sell
+  const DOODLES = {
+    liu: `<svg viewBox="0 0 960 600" style="width:100%;height:100%;background:#fff3e0" class="boil">
+      <path class="o" d="M250 150 H710 V470 H250 Z" fill="#f6e7c8"/><path class="o" d="M220 130 H280 V490 H220 Z M680 130 H740 V490 H680 Z" fill="#b9784a"/>
+      <text x="480" y="330" text-anchor="middle" font-family="Ma Shan Zheng" font-size="170" fill="#2b2b2b">剑经</text>
+      <path d="M300 400 H660" stroke="#d9332b" stroke-width="8" stroke-linecap="round"/>
+      <path class="o" d="M800 120 L 880 40 M820 140 L 860 100" stroke-width="12"/><path class="o" d="M100 520 L 200 420" stroke-width="12"/></svg>`,
+  };
+  const pop = (sel, at, o = {}) => [sel, at, { scale: 0.3, ease: 'back', sfx: 'pop', vol: 0.5, ...o }];
+  const ITEMS = [], WORDS = [], DRAWS = [];
+
+  const CLOUD = 'M-60 10 C -80 -20, -40 -40, -20 -20 C -20 -50, 30 -50, 30 -20 C 50 -40, 80 -20, 66 6 C 80 20, 60 34, 40 26 L -40 26 C -70 30, -78 18, -60 10 Z';
+  const VASE = `<path class="o" d="M80 20 H140 V40 C 140 56, 190 70, 190 140 C 190 210, 150 240, 110 240 C 70 240, 30 210, 30 140 C 30 70, 80 56, 80 40 Z" fill="#e8f1fb"/>
+    <path d="M60 120 C 90 104, 130 104, 160 120 M52 160 C 90 146, 130 146, 168 160" stroke="#3e6fb0" stroke-width="7" fill="none" stroke-linecap="round"/>`;
+  const CRACK = (id) => `<path id="${id}" d="M110 30 L 96 80 L 124 110 L 92 150 L 120 190 L 104 236" fill="none" stroke="#2b2b2b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`;
+  $('#clouds').innerHTML = [[70, 1600, 1.1], [1010, 1720, 1.3]]
+    .map(([x, y, s], i) => `<g transform="translate(${x} ${y}) scale(${s})"><g id="cl${i}"><path class="o" d="${CLOUD}" fill="#fff" stroke-width="5"/>
+      <path d="M-30 -2 C -24 -14, -8 -12, -8 0 M14 -6 C 20 -18, 36 -14, 34 -2" stroke="#2b2b2b" stroke-width="4" fill="none" stroke-linecap="round"/></g></g>`).join('');
+
+  // ---- 1 · hook (layout A: picture on top, big Mochi below) --------------------------------------------
+  const s1 = scene('s1');
+  add(s1, shot('s1-shot', [[0, 'backdrops-07'], [2.6, 'eps-11']], 60, 170, 960, 640, -1.5));
+  add(s1, svg('s1-crack', 360, 200, 360, 600, '0 0 220 260', CRACK('s1-crackpath'), ''));
+  add(s1, `<div class="ln" id="s1-hook" style="top:860px"><span class="pill red"><span class="tx" style="font-size:58px">ชะตาแตกตั้งแต่ 5 ขวบ!</span></span></div>`);
+  ITEMS.push(['#s1-shot', 0.1, { scale: 0.3, r: -10, ease: 'spring', dur: 0.9, sfx: 'whoosh', vol: 0.6 }],
+             ['#s1-crack', 3.8, { dur: 0.1, sfx: 'impact', vol: 0.8 }], pop('#s1-hook', 4.5));
+  DRAWS.push(['#s1-crackpath', 3.8]);
+
+  // ---- 2 · title + where the idea came from (A) ----------------------------------------------------------
+  const s2 = scene('s2');
+  add(s2, shot('s2-shot', [[0, 'backdrops-02'], [AT.title + 7.0, 'backdrops-13']], 60, 150, 960, 640, 1.5));
+  add(s2, line('s2-zh', 690, '剑来', 220, 'color:#d9332b;line-height:1.05', 'zh'));
+  add(s2, `<div class="ln" id="s2-th" style="top:930px"><span class="pill"><span class="tx" style="font-size:60px">กระบี่จงมา</span></span></div>`);
+  add(s2, label('s2-p1', 70, 1060, 'อนิเมะจีน · 26 ตอน', 34, 'white'));
+  add(s2, label('s2-p2', 615, 1040, 'แรงบันดาลใจ:<br>เมืองหลงเฉวียน <span class="zh">龙泉</span>', 28, 'mint'));
+  ITEMS.push(['#s2-shot', AT.title + 0.1, { y: -200, ease: 'back', dur: 0.7 }],
+             ['#s2-zh', AT.title + 0.5, { scale: 2.4, ease: 'spring', dur: 0.8, sfx: 'impact', vol: 0.7 }],
+             pop('#s2-th', AT.title + 1.0, { sfx: 'ding', vol: 0.5 }), pop('#s2-p1', AT.title + 2.6), pop('#s2-p2', AT.title + 7.2));
+
+  // ---- story sections (layout B: picture, three keyword pills, small Mochi in the corner) ----------------
+  // [key, title, seal, pictures [[delay, image]], pills [[delay, text, colour]], picture tilt]
+  const STORY = [
+    ['town', 'แดนลับหลีจู', '骊珠洞天', [[0, 'eps-03'], [3.2, 'eps-08'], [6.4, 'eps-19']],
+      [[2.0, '1 ใน 36 ถ้ำสวรรค์น้อย', 'white'], [4.5, 'พลังบำเพ็ญถูกกดไว้', 'sky'], [6.9, 'คนธรรมดา + ผู้บำเพ็ญ อยู่ด้วยกัน', 'mint']], -1],
+    ['chen', 'เฉินผิงอัน', '陈平安', [[0, 'backdrops-08'], [4.0, 'eps-23'], [8.0, 'eps-15']],
+      [[2.6, 'เครื่องเคลือบชะตาแตก', 'white'], [4.6, 'พ่อแม่จากไปเพราะแรงสะท้อน', 'sky'], [7.5, 'ลูกมือเตามังกร · เก็บสมุนไพรขาย', 'mint']], 1],
+    ['ning', 'หนิงเหยา', '宁姚', [[0, 'eps-04'], [2.5, 'eps-12'], [5.5, 'eps-10']],
+      [[2.5, 'ลูกสาวคู่เซียนกระบี่', 'white'], [4.0, 'จากกำแพงปราณกระบี่', 'sky'], [5.5, 'สอนตำราหมัด <span class="zh">撼山谱</span>', 'mint']], -1],
+    ['liu', 'หลิวเซี่ยนหยาง', '刘羡阳', [[0, 'liu-xianyang'], [10.1, 'eps-11']],
+      [[1.8, 'เพื่อนรัก · มีคัมภีร์กระบี่', 'white'], [5.8, 'ถูกวานรย้ายภูเขาทำร้าย', 'sky'], [10.2, 'เฉินผิงอันสู้เพื่อเพื่อน!', 'red']], 1],
+    ['qi', 'ฉีจิ้งชุน', '齐静春', [[0, 'eps-06']],
+      [[1.0, 'ศิษย์ของปราชญ์', 'white'], [3.2, 'คุมเมืองนี้ 60 ปี', 'sky'], [7.2, 'ต้านแรงสะท้อนจากฟ้าเพียงลำพัง', 'red']], -1],
+    ['ending', 'บทส่งท้ายภาค 1', '山崖书院', [[0, 'backdrops-14'], [6.5, 'eps-25']],
+      [[0.8, 'แดนลับหลีจูแตกสลาย', 'white'], [2.4, 'ปิ่นหยกจากฉีจิ้งชุน', 'pink'], [6.5, 'ไปซานหยา กับหลี่เป่าผิง', 'mint']], 1],
+  ];
+  for (const [key, title, zh, pics, pills, tilt] of STORY) {
+    const sc = scene('s-' + key), at = AT[key];
+    add(sc, line(`${key}-a`, 200, title, 88));
+    add(sc, shot(`${key}-shot`, pics.map(([d, n]) => [at + d, n]), 60, 340, 960, 600, tilt));
+    add(sc, seal(`${key}-zh`, 780, 305, zh));
+    pills.forEach(([d, text, kind], i) => add(sc, label(`${key}-l${i}`, 70, 990 + i * 120, text, 34, kind)));   // 34px keeps the longest pill clear of corner Mochi
+    ITEMS.push([`#${key}-a`, at + 0.1, { dur: 0.2 }], [`#${key}-shot`, at + 0.2, { y: 160, ease: 'back', dur: 0.7, sfx: 'whoosh', vol: 0.5 }],
+               pop(`#${key}-zh`, at + 0.6, { r: 20 }),
+               ...pills.map(([d], i) => [`#${key}-l${i}`, at + d, { x: -80, ease: 'back', sfx: 'pop', vol: 0.4 }]));
+    WORDS.push([`#${key}-a .tx`, at + 0.1]);
+  }
+  // the spoiler warning pops over the Qi Jingchun section, right before the ending is told
+  add('#s-qi', `<div class="lb" id="qi-spoil" style="left:560px;top:1000px"><span class="pill red"><span class="tx" style="font-size:40px">เตือนสปอยล์!</span></span></div>`);
+  ITEMS.push(pop('#qi-spoil', AT.qi + 5.9, { r: -12, sfx: 'impact', vol: 0.5 }));
+  // the last photo in Liu's section is Chen fighting for him, so it carries Chen's name
+  add('#s-liu', label('liu-chen', 100, 380, 'เฉินผิงอัน', 36, 'white'));
+  ITEMS.push(pop('#liu-chen', AT.liu + 10.2, { vol: 0.4 }));
+  // Chen's crack reappears on his first picture
+  add('#s-chen', svg('chen-crack', 360, 360, 360, 560, '0 0 220 260', CRACK('chen-crackpath'), ''));
+  ITEMS.push(['#chen-crack', AT.chen + 2.5, { dur: 0.1, sfx: 'impact', vol: 0.6 }]);
+  DRAWS.push(['#chen-crackpath', AT.chen + 2.5]);
+
+  // ---- 4 · natal porcelain (layout C: Mochi centre stage) -------------------------------------------------
+  const s4 = scene('s-porcelain');
+  add(s4, line('p-a', 200, 'เครื่องเคลือบชะตา', 84));
+  add(s4, `<div class="ln" id="p-zh" style="top:330px"><span class="seal zh" style="font-size:60px">本命瓷</span></div>`);
+  add(s4, shot('p-shot', [[0, 'backdrops-04'], [AT.porcelain + 4.0, 'eps-13']], 600, 470, 420, 240, 3));
+  add(s4, `<div class="lb" id="p-buy" style="left:60px;top:520px"><span class="pill red"><span class="tx" style="font-size:40px">ซื้อไปควบคุม<br>อัจฉริยะ!</span></span></div>`);
+  add(s4, svg('p-vase', 60, 1180, 220, 260, '0 0 220 260', VASE + CRACK('p-crackpath')));
+  add(s4, svg('p-sect', 760, 1150, 260, 300, '0 0 260 300', `
+    <path class="o" d="M60 120 C 60 60, 140 60, 140 120 L 160 290 L 40 290 Z" fill="#555a66"/><circle class="o" cx="100" cy="70" r="40" fill="#555a66"/>
+    <path d="M78 66 L92 72 M122 66 L108 72" stroke="#ffe08a" stroke-width="6" stroke-linecap="round"/>
+    <g transform="translate(130 150) scale(.45)">${VASE}</g>`));
+  add(s4, label('p-sect-l', 640, 1400, 'สำนักภายนอก', 36, 'white'));
+  ITEMS.push(['#p-a', AT.porcelain + 0.2, { dur: 0.2 }], pop('#p-zh', AT.porcelain + 0.6, { r: -20 }), pop('#p-vase', AT.porcelain + 1.2),
+             ['#p-shot', AT.porcelain + 1.6, { x: 300, ease: 'back', sfx: 'whoosh', vol: 0.4 }],
+             ['#p-sect', AT.porcelain + 3.6, { x: 300, ease: 'back', dur: 0.7, sfx: 'whoosh', vol: 0.5 }], pop('#p-sect-l', AT.porcelain + 4.0),
+             pop('#p-buy', AT.porcelain + 6.3, { sfx: 'impact', vol: 0.5 }));
+  WORDS.push(['#p-a .tx', AT.porcelain + 0.2]);
+  DRAWS.push(['#p-crackpath', AT.porcelain + 2.4]);
+
+  // ---- 10 · season 2 + follow (A) -----------------------------------------------------------------------
+  const s10 = scene('s10');
+  add(s10, shot('s10-shot', [[0, 'backdrops-17'], [AT.s2 + 3.0, 'eps-27'], [AT.s2 + 6.0, 'backdrops-06']], 60, 160, 960, 640, -1));
+  add(s10, `<div class="ln" id="s10-a" style="top:840px"><span class="pill red"><span class="tx" style="font-size:66px">ภาค 2 มาแล้ว!</span></span></div>`);
+  add(s10, line('s10-b', 975, 'ภาค 1 มี 26 ตอน ดูทันแน่นอน', 46));
+  ITEMS.push(['#s10-shot', AT.s2 + 0.1, { scale: 0.3, r: 10, ease: 'spring', dur: 0.9, sfx: 'impact', vol: 0.6 }],
+             pop('#s10-a', AT.s2 + 0.5, { sfx: 'ding', vol: 0.6 }), ['#s10-b', AT.s2 + 1.5, { dur: 0.2 }]);
+  WORDS.push(['#s10-b .tx', AT.s2 + 1.5]);
+
+  // ---- scene order + transitions (no transition repeats back to back) -------------------------------------
+  const ORDER = [['#s1', AT.hook], ['#s2', AT.title], ['#s-town', AT.town], ['#s-porcelain', AT.porcelain], ['#s-chen', AT.chen],
+                 ['#s-ning', AT.ning], ['#s-liu', AT.liu], ['#s-qi', AT.qi], ['#s-ending', AT.ending], ['#s10', AT.s2]];
+  const MOVES = ['zoom', 'wipe', 'whip', 'circle', 'wipe', 'zoom', 'whip', 'circle', 'zoom'];   // into scene 2, 3, ...
+  const SCENES = ORDER.map(([sel, at], i) => {
+    const into = MOVES[i - 1], out = MOVES[i], next = ORDER[i + 1];
+    const exit = !out ? undefined : out === 'circle' || out === 'wipe' ? 'hold' : out;
+    return [sel, i ? at - 0.3 : -1, next ? next[1] - 0.3 : 999, { enter: into, exit, dur: into === 'circle' ? 0.7 : 0.6 }];
+  });
+  const WHIP_OUT = SCENES.filter(([, , , o]) => o.exit === 'whip').map(([sel, , out]) => [sel, out]);   // fx.js leaves whipped scenes opaque off-screen
+  FX.cues(ITEMS, SCENES.slice(1).map(([, at]) => [at, 'whoosh', 0.6]));
+
+  // ---- Mochi: one narrator moving between the layouts --------------------------------------------------------
+  const A = [540, 1400, 600], B = [905, 1365, 300], C = [540, 940, 700];
+  const LAYOUT = [[AT.hook, A], [AT.town, B], [AT.porcelain, C], [AT.chen, B], [AT.s2, A]];
+  const POSE = LAYOUT.flatMap(([at, p], i) => (i ? [[at - 0.2, ...LAYOUT[i - 1][1]], [at + 0.5, ...p]] : [[0, ...p]])).concat([[DUR, ...A]]);
+  const MOOD = [[0, 'shock'], [AT.title, 'sparkle'], [AT.town, 'determined'], [AT.porcelain, 'tired'], [AT.chen, 'sleep'], [AT.ning, 'sparkle'],
+                [AT.liu, 'determined'], [AT.qi, 'happy'], [AT.qi + 5.9, 'shock'], [AT.ending, 'sleep'], [AT.s2, 'happy']];
+  const WAVE_AT = AT.s2 + 4;
+
+
+  // ---- chibi Chen Ping'an + Ning Yao (doodle, outfits from the MAL reference images) in the empty lower-left corner ----
+  // Shown in the picture+pills layout; they react to the story. Drawn in a 300×360 box, shoulders at (100,250)/(200,250).
+  const SKIN = '#ffe3cc', INK = '#2b2b2b';
+  const CHIBI_EYES = {
+    dot:    `<ellipse cx="112" cy="152" rx="10" ry="13" fill="${INK}"/><ellipse cx="188" cy="152" rx="10" ry="13" fill="${INK}"/><circle cx="116" cy="146" r="4" fill="#fff"/><circle cx="192" cy="146" r="4" fill="#fff"/>`,
+    happy:  `<path class="o" d="M98 156 Q112 140 126 156 M174 156 Q188 140 202 156" fill="none" stroke-width="7"/>`,
+    sad:    `<path class="o" d="M98 150 Q112 162 126 150 M174 150 Q188 162 202 150" fill="none" stroke-width="7"/><path d="M200 166 C 206 180, 196 186, 194 176 Z" fill="#a0d2ff"/>`,
+    fierce: `<path class="o" d="M96 132 L126 142 M204 132 L174 142" fill="none" stroke-width="8"/><ellipse cx="112" cy="156" rx="9" ry="10" fill="${INK}"/><ellipse cx="188" cy="156" rx="9" ry="10" fill="${INK}"/>`,
+  };
+  const CHIBI_MOUTH = { dot: 'M142 190 Q150 198 158 190', happy: 'M138 186 Q150 204 162 186', sad: 'M140 196 Q150 188 160 196', fierce: 'M138 194 H162' };
+  function chibi(who, eyes, id) {
+    const robe = who === 'chen' ? '#9fb3c8' : '#d9ecf7', trim = who === 'chen' ? '#7d92aa' : '#3e8fc0';
+    const arm = (side) => {
+      const x = side === 'L' ? 100 : 200, dx = side === 'L' ? -10 : 10;
+      const sword = who === 'ning' && side === 'L' ? `<path class="o" d="M${x + dx - 4} 270 L ${x + dx - 4} 352" stroke-width="16"/><path d="M${x + dx - 4} 272 L ${x + dx - 4} 350" stroke="#9fd6b8" stroke-width="8"/>` : '';
+      return `<g id="${id}-arm${side}" style="transform-box:view-box;transform-origin:${x}px 250px">
+        <path class="o" d="M${x} 250 L ${x + dx} 300" stroke-width="30"/><path d="M${x} 250 L ${x + dx} 300" stroke="${robe}" stroke-width="20" stroke-linecap="round"/>
+        <circle class="o" cx="${x + dx}" cy="306" r="13" fill="${SKIN}" stroke-width="6"/>${sword}</g>`;
+    };
+    const hair = who === 'chen'
+      ? `<path class="o" d="M46 160 C 36 72, 110 30, 160 38 C 232 30, 270 96, 254 164 L 240 122 L 228 150 L 214 108 L 194 130 L 178 96 L 160 124 L 142 94 L 124 126 L 104 100 L 92 134 L 72 112 L 62 164 Z" fill="${INK}" stroke-width="6"/>
+         <path class="o" d="M150 40 C 136 8, 178 10, 166 38" fill="${INK}" stroke-width="6"/>`
+      : `<g id="${id}-tail" style="transform-box:view-box;transform-origin:150px 34px"><path class="o" d="M152 30 C 214 8, 262 64, 240 150 C 230 100, 198 66, 160 50 Z" fill="${INK}" stroke-width="6"/></g>
+         <circle class="o" cx="150" cy="32" r="22" fill="${INK}" stroke-width="6"/><rect x="136" y="18" width="28" height="8" rx="3" fill="#cfd8e3" stroke="${INK}" stroke-width="3"/>
+         <path class="o" d="M46 156 C 38 66, 110 32, 152 40 C 196 32, 264 66, 254 156 C 240 112, 206 84, 152 74 C 98 84, 60 112, 46 156 Z" fill="${INK}" stroke-width="6"/>
+         <path class="o" d="M50 146 C 40 196, 50 222, 64 238 L 74 196 Z M250 146 C 260 196, 250 222, 236 238 L 226 196 Z" fill="${INK}" stroke-width="5"/>`;
+    return `
+      <path class="o" d="M96 236 C 80 262, 70 300, 72 332 L 228 332 C 230 300, 220 262, 204 236 Z" fill="${robe}"/>
+      ${who === 'chen' ? `<path d="M84 280 H216 M80 304 H220" stroke="${trim}" stroke-width="6"/>` : `<path d="M134 270 C 128 284, 138 292, 130 304 M166 270 C 172 284, 162 292, 170 304" stroke="${trim}" stroke-width="5" fill="none" stroke-linecap="round"/>`}
+      <path class="o" d="M122 238 L150 276 L178 238" fill="none" stroke="#fff" stroke-width="12"/><path d="M122 238 L150 276 L178 238" fill="none" stroke="${INK}" stroke-width="4"/>
+      <path class="o" d="M80 292 H220" stroke="${who === 'chen' ? '#b9784a' : trim}" stroke-width="10"/>
+      <rect class="o" x="112" y="330" width="28" height="24" rx="8" fill="#3a3a4a" stroke-width="6"/><rect class="o" x="160" y="330" width="28" height="24" rx="8" fill="#3a3a4a" stroke-width="6"/>
+      <ellipse class="o" cx="150" cy="146" rx="104" ry="96" fill="${SKIN}"/>
+      <ellipse cx="96" cy="178" rx="16" ry="9" fill="#ff9eb5" opacity=".8"/><ellipse cx="204" cy="178" rx="16" ry="9" fill="#ff9eb5" opacity=".8"/>
+      <g id="${id}-eyes" style="transform-box:view-box;transform-origin:150px 152px">${CHIBI_EYES[eyes]}</g>
+      <path class="o" d="${CHIBI_MOUTH[eyes]}" fill="none" stroke-width="6"/>
+      ${hair}
+      ${arm('L')}${arm('R')}`;                                  // arms on top so a raised arm is never hidden by the big head
+  }
+  // when each chibi is on screen, and what it feels
+  const CHIBI_ON = { chen: [[AT.town, AT.porcelain - 0.3], [AT.chen, AT.s2 - 0.3]], ning: [[AT.ning + 0.4, AT.s2 - 0.3]] };
+  const CHIBI_MOOD = {
+    chen: [[AT.town, 'dot'], [AT.chen, 'sad'], [AT.ning, 'happy'], [AT.liu, 'dot'], [AT.liu + 10.1, 'fierce'], [AT.qi, 'dot'], [AT.qi + 5.9, 'sad'], [AT.ending + 6.5, 'happy']],
+    ning: [[AT.ning, 'dot'], [AT.liu + 10.1, 'fierce'], [AT.qi, 'dot'], [AT.qi + 5.9, 'sad'], [AT.ending + 6.5, 'happy']],
+  };
+  const chibiShown = { chen: null, ning: null };
+  // bottom centre of the free area (left of corner Mochi): Chen alone stands in the middle, steps aside when Ning arrives
+  const CHIBI_Y = 1480, MID = 500;
+  function renderChibis(t) {
+    for (const who of ['chen', 'ning']) {
+      const el = $('#chibi-' + who), id = 'cb-' + who;
+      const p = Math.max(...CHIBI_ON[who].map(([a, b]) => ease.back((t - a) / 0.5) * (1 - clamp((t - b) / 0.3))));
+      el.style.opacity = clamp(p * 3);
+      if (p <= 0) continue;
+      const mood = CHIBI_MOOD[who].filter(([at]) => t >= at).pop()[1];
+      if (chibiShown[who] !== mood) { el.innerHTML = chibi(who, mood, id); chibiShown[who] = mood; }
+      const fight = who === 'chen' && t >= AT.liu + 10.1 && t < AT.qi;
+      const hop = fight ? Math.abs(Math.sin(t * 7)) * 14 : 4 * Math.sin(t * 2.6 + (who === 'ning' ? 1 : 0));
+      const ningIn = Math.max(...CHIBI_ON.ning.map(([a, b]) => ease.inOut((t - a) / 0.6) * (1 - clamp((t - b) / 0.3))));
+      const x = who === 'chen' ? MID - 120 - 125 * ningIn : MID + 5;
+      el.style.transform = `translate(${x}px, ${CHIBI_Y + (1 - p) * 120 - hop}px)`;
+      // arms: Ning demonstrates punches, Chen copies a beat later · Chen puts his fists up to fight · both wave goodbye
+      let L = 0, R = 0;
+      const punch = (start) => { const c = (t - start) % 1.1; return t >= start && t < AT.liu ? -90 * Math.sin(Math.PI * clamp(c / 0.5)) : 0; };
+      if (who === 'ning') R = punch(AT.ning + 5.5);
+      if (who === 'chen') R = punch(AT.ning + 6.0);
+      if (fight) { L = 130; R = -130 + 10 * Math.sin(t * 7); }
+      if (t >= AT.ending + 6.5) R = -120 + 25 * Math.sin((t - AT.ending) * 8);   // arm up and out, waving
+      $(`#${id}-armL`).style.transform = `rotate(${L}deg)`;
+      $(`#${id}-armR`).style.transform = `rotate(${R}deg)`;
+      const tail = $(`#${id}-tail`); if (tail) tail.style.transform = `rotate(${6 * Math.sin(t * 2.2)}deg)`;
+      const blink = (t + (who === 'ning' ? 1.3 : 0)) % 3.4 < 0.12;
+      $(`#${id}-eyes`).style.transform = blink ? 'scaleY(0.15)' : 'none';
+    }
+  }
+
+  let shownMood = null;
+  function render(t) {
+    FX.camera('#cam', t, DUR, { push: 0.03, shakes: [[3.8, 12], [AT.title + 0.5, 10], [AT.chen + 2.5, 8], [AT.liu + 10.2, 10]] });
+    Boil.update(t);
+    for (let i = 0; i < 2; i++) $('#cl' + i).style.transform = `translateX(${Math.sin(t * 0.4 + i) * 30}px)`;
+    FX.scenes(SCENES, t);
+    for (const [sel, out] of WHIP_OUT) if (t >= out + 0.55) $(sel).style.opacity = 0;
+    FX.items(ITEMS, t);
+
+    for (const [id, at] of SLIDES) {                        // cross-fade + slow push from the moment a picture appears
+      const img = document.getElementById(id);
+      if (!img) continue;
+      img.style.opacity = clamp((t - at) / 0.45);
+      img.style.transform = `scale(${1.04 + 0.05 * clamp((t - Math.max(0, at)) / 6)})`;
+    }
+    for (const [sel, at] of DRAWS) FX.draw(sel, t, at, 0.35);
+    for (const [sel, at] of WORDS) FX.words(sel, t, at, { each: 0.15 });
+    renderChibis(t);
+    $('#p-sect').style.transform += ` translateY(${6 * Math.sin(t * 3)}px)`;
+
+    // Mochi: glide between layouts, expression per section, lip-sync, blink, wave at the end
+    let k = 0; while (k < POSE.length - 2 && t >= POSE[k + 1][0]) k++;
+    const [t0, x0, y0, s0] = POSE[k], [t1, x1, y1, s1] = POSE[k + 1], p = ease.inOut((t - t0) / Math.max(0.01, t1 - t0));
+    const size = s0 + (s1 - s0) * p, cx = x0 + (x1 - x0) * p, cy = y0 + (y1 - y0) * p + 6 * Math.sin(t * 2.4);
+    const mood = (MOOD.filter(([at]) => t >= at).pop() || MOOD[0])[1], waving = t >= WAVE_AT;
+    if (mood + waving !== shownMood) {
+      $('#mochi').innerHTML = `<g id="mo-body">${Mochi.svg(mood, 'talk', { outfit: 'wuxia', wave: waving, id: 'mo' })}</g>`;
+      shownMood = mood + waving;
+    }
+    const intro = ease.back((t - 0.3) / 0.7);
+    $('#mochi').style.transform = `translate(${cx - size / 2}px, ${cy - size / 2}px) scale(${size / 400 * intro})`;
+    $('#mochi').style.opacity = clamp((t - 0.3) / 0.2);
+    Mochi.talk('mo', t);
+    Mochi.blink('mo', t);
+    if (waving) $('#mo-wave').style.transform = `rotate(${-10 + 22 * Math.sin((t - WAVE_AT) * 8)}deg)`;
+  }
+  window.render = render;
+
+  // ?render → driven by render.mjs · ?t=5 → freeze at 5s · otherwise loop with a scrubber
+  const params = new URLSearchParams(location.search);
+  if (params.has('render')) { document.body.classList.add('render'); render(0); }
+  else {
+    const fit = () => {
+      const s = Math.min(innerWidth / 1080, (innerHeight - 40) / 1920);
+      $('#stage').style.transform = `translate(${(innerWidth - 1080 * s) / 2}px, 0) scale(${s})`;
+    };
+    fit(); addEventListener('resize', fit);
+    const bar = $('#scrub input'), label = $('#scrub span');
+    bar.max = DUR;
+    const show = (t) => { render(t); bar.value = t; label.textContent = t.toFixed(2) + 's'; };
+    let t0 = performance.now(), dragging = false;
+    bar.addEventListener('input', () => { dragging = true; show(+bar.value); });
+    bar.addEventListener('change', () => { dragging = false; t0 = performance.now() - bar.value * 1000; });
+    const loop = () => { if (!dragging) show(((performance.now() - t0) / 1000) % DUR); requestAnimationFrame(loop); };
+    if (params.has('t')) show(+params.get('t')); else loop();
+  }
+</script>
+</body>
+</html>
