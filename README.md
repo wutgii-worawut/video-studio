@@ -9,12 +9,15 @@ CLAUDE.md                  กฎพื้นฐานที่ Claude Code อ�
 render.mjs                 ตัวเรนเดอร์ ใช้ร่วมกันทุกโปรเจกต์
 lib/fx.js                  คลังลูกเล่น: ตัวหนังสือทีละคำ ไฮไลต์ ขีดฆ่า spring เปลี่ยนฉาก กล้องสั่น วาดเส้น confetti
 sfx/                       เสียงเอฟเฟกต์ในตัว whoosh tick pop impact ding (สร้างใหม่: node sfx/make-sfx.mjs)
+styles/                    แนวภาพที่ใช้ซ้ำได้ 1 แนว = 1 โฟลเดอร์ (style.md + example.png + โค้ดเฉพาะแนว)
+  cute-doodle/             Kawaii Doodle: เส้นสั่น line boil (boil.js) พาสเทล กระดาษลายจุด ตัวละครกลมๆ
+  dark-tech/               Dark Tech / Terminal: พื้นมืด แสงฟุ้งนีออน terminal การ์ดคำสั่ง
 .claude/skills/
   check-computer/          /check-computer        เช็ก/เตรียมเครื่อง (ครั้งแรก/ย้ายเครื่อง)
   make-video/              /make-video <ชื่อ>     ทำ/แก้คลิป: ขั้นตอน ลำดับเรื่อง กฎการขยับ เสียง
 projects/
   <ชื่อโปรเจกต์>/
-    brand/brand.md         ข้อมูลสินค้า ปัญหา จุดเด่น สี ฟอนต์ สไตล์
+    brand/brand.md         ข้อมูลสินค้า/เรื่อง ปัญหา จุดเด่น + บรรทัด "สไตล์: <ชื่อแนวใน styles/>"
     brand/music.mp3        เพลง (ไม่ใส่ก็ได้)
     brand/sfx/<ชื่อ>.wav   เสียงเฉพาะโปรเจกต์ ทับของ sfx/ (ไม่ใส่ก็ได้)
     source/index.html      ต้นฉบับ 1080x1920 จังหวะ+เสียงทุกชิ้นอยู่ในตาราง ITEMS
