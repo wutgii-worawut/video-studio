@@ -30,6 +30,7 @@
 
   /* scene 2: product */
   .h2 { font-size:84px; font-weight:800; }
+  .mark { padding:0 14px; border-radius:12px; }
   .term { position:absolute; left:80px; width:920px; top:390px; height:310px; border-radius:32px; background:#0f1630; border:2px solid #ffffff1f; box-shadow:0 30px 80px #0008; opacity:0; overflow:hidden; }
   .bar { height:58px; display:flex; gap:14px; align-items:center; padding:0 28px; background:#ffffff0a; }
   .bar i { width:20px; height:20px; border-radius:50%; display:block; }
@@ -41,9 +42,13 @@
   .num { position:absolute; right:40px; top:30px; width:60px; height:60px; border-radius:50%; background:var(--violet); text-align:center; line-height:60px; font-size:34px; font-weight:800; }
 
   /* scene 3: outro */
+  #s3 { background:radial-gradient(circle at 30% 30%, #3a2a7a 0, transparent 45%), radial-gradient(circle at 75% 75%, #0f4a5a 0, transparent 50%), var(--bg); }  /* opaque: the circle reveal covers scene 2 */
   .logo { font-size:230px; font-weight:800; letter-spacing:-6px; background:linear-gradient(100deg,var(--violet),var(--cyan)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .squiggle { position:absolute; left:290px; top:872px; width:500px; height:40px; }
   .cta { font-size:62px; font-weight:800; padding:24px 60px; border-radius:999px; background:var(--fg); color:var(--bg); }
+  #confetti { position:absolute; inset:0; pointer-events:none; }
 </style>
+<script src="../../../lib/fx.js"></script>
 </head>
 <body>
 <div id="stage">
@@ -61,7 +66,7 @@
   </div>
 
   <div class="scene" id="s2">
-    <div class="ln" id="s2-title" style="top:220px"><span class="tx h2">ใช้ <span style="color:var(--cyan)">skillz</span> ช่วยแก้</span></div>
+    <div class="ln" id="s2-title" style="top:220px"><span class="tx h2">ใช้ <span class="mark" id="mark" style="color:var(--cyan)">skillz</span> ช่วยแก้</span></div>
     <div class="term" id="s2-term">
       <div class="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
       <div class="code mono"><span class="tx" id="typed"></span></div>
@@ -74,68 +79,83 @@
 
   <div class="scene" id="s3">
     <div class="ln" id="s3-logo" style="top:600px"><span class="tx logo">skillz</span></div>
-    <div class="ln" id="s3-sub" style="top:920px"><span class="tx" style="font-size:52px;color:var(--dim)">Sonar skills สำหรับ Claude Code</span></div>
-    <div class="ln" id="s3-cta" style="top:1110px"><span class="tx cta"><span id="arrow" style="display:inline-block">↑</span> ลิงก์อยู่หน้าโปรไฟล์</span></div>
+    <svg class="squiggle" viewBox="0 0 500 40"><path id="squiggle" d="M6 24 C 60 4, 110 40, 170 20 S 280 4, 340 22 S 440 36, 494 14" fill="none" stroke="#22d3ee" stroke-width="8" stroke-linecap="round"/></svg>
+    <div class="ln" id="s3-sub" style="top:920px"><span class="tx" style="font-size:48px;color:var(--dim)">Sonar skills สำหรับ Claude Code</span></div>
+    <div class="ln" id="s3-cta" style="top:1110px"><span class="tx cta" id="cta"><span id="arrow" style="display:inline-block">↑</span> ลิงก์อยู่หน้าโปรไฟล์</span></div>
     <div class="ln" id="s3-url" style="top:1300px"><span class="tx mono" style="font-size:34px;color:var(--dim)">github.com/wutgii-worawut/skillz</span></div>
+    <div id="confetti"></div>
   </div>
 </div>
 </div>
 <div id="scrub"><input type="range" min="0" max="15" step="0.0333" value="0"><span>0.00s</span></div>
 
 <script>
-  // Every frame is a pure function of t (seconds). No timers, no CSS animations.
+  // Every frame is a pure function of t (seconds). Effects come from lib/fx.js (catalogue at its top).
   const $ = (s) => document.querySelector(s);
-  const clamp = (x) => Math.min(1, Math.max(0, x));
-  const ease = (x) => 1 - Math.pow(1 - clamp(x), 3);           // slide in, soft stop
-  const smooth = (x) => { x = clamp(x); return x * x * (3 - 2 * x); };
-  const CMD = '$ npx skills add\n  wutgii-worawut/skillz -a claude-code';
+  const { ease, clamp } = FX;
   const DUR = 15;
-  // [scene, fade in at, fade out at]
-  const SCENES = [['#s1', -1, 2.6], ['#s2', 2.9, 9.7], ['#s3', 9.9, 99]];
-  // The whole timeline in one place: [element, start (s), slides in from {x, y, r°}, duration (s)]
-  const ITEMS = [
-    ['#s1-tag',   0.0,  { y: 90 }],
-    ['#s1-l1',    0.2,  { y: 90 }],
-    ['#s1-l2',    0.45, { y: 90 }],
-    ['#s1-l3',    0.7,  { y: 90 }],
-    ['#s1-count', 1.0,  { y: 90 }],
+  const CMD = '$ npx skills add\n  wutgii-worawut/skillz -a claude-code';
+  const TYPE_AT = 3.7, TYPE_FOR = 1.1;
 
-    ['#s2-title', 3.1,  { y: 90 }],
-    ['#s2-term',  3.3,  { y: 90 }],
-    ['#s2-f1',    5.5,  { x: 160 }],
-    ['#s2-f2',    6.7,  { x: 160 }],
-    ['#s2-f3',    7.9,  { x: 160 }],
-
-    ['#s3-logo',  10.2, { y: 90 }],
-    ['#s3-sub',   10.5, { y: 90 }],
-    ['#s3-cta',   11.0, { y: 90 }],
-    ['#s3-url',   11.4, { y: 90 }],
+  // [scene, in, out, {enter, exit}] — s1 zooms through into s2, s3 opens as a growing circle over s2
+  const SCENES = [
+    ['#s1', -1, 2.6, { exit: 'zoom' }],
+    ['#s2', 2.7, 9.6, { enter: 'zoom', exit: 'hold' }],
+    ['#s3', 9.5, 99, { enter: 'circle', dur: 0.7 }],
   ];
+  // The whole timeline in one place: [element, start (s), {comes in from x/y/r/scale/blur, dur, ease, sfx}]
+  const ITEMS = [
+    ['#s1-tag',   0.0,  { y: -60, ease: 'back', sfx: 'pop' }],
+    ['#s1-l1',    0.15, { dur: 0.3, sfx: 'whoosh', vol: 0.8 }],          // words animate inside (see render)
+    ['#s1-l2',    0.45, { dur: 0.3, sfx: 'whoosh', vol: 0.6 }],
+    ['#s1-l3',    0.85, { scale: 1.9, ease: 'spring', dur: 0.9, sfx: 'impact' }],
+    ['#s1-count', 1.2,  { y: 90, ease: 'back', sfx: 'pop', vol: 0.7 }],
+
+    ['#s2-title', 3.0,  { y: 90, sfx: 'whoosh', vol: 0.6 }],
+    ['#s2-term',  3.2,  { y: 140, ease: 'back' }],
+    ['#s2-f1',    5.5,  { x: 260, ease: 'spring', blur: 10, sfx: 'whoosh' }],
+    ['#s2-f2',    6.7,  { x: 260, ease: 'spring', blur: 10, sfx: 'whoosh' }],
+    ['#s2-f3',    7.9,  { x: 260, ease: 'spring', blur: 10, sfx: 'whoosh' }],
+
+    ['#s3-logo',  10.0, { scale: 0.3, ease: 'spring', dur: 1.0, sfx: 'impact', vol: 0.8 }],
+    ['#s3-sub',   10.6, { dur: 0.3 }],                                     // words animate inside
+    ['#s3-cta',   11.1, { y: 120, ease: 'back', sfx: 'pop' }],
+    ['#s3-url',   11.5, { y: 60 }],
+  ];
+  // Extra sounds that aren't an item entering: one tick per typed character, chimes on success and logo.
+  const typedAt = (i) => TYPE_AT + (i / CMD.length) * TYPE_FOR;
+  FX.cues(ITEMS, [
+    ...[...CMD].flatMap((ch, i) => (ch.trim() ? [[typedAt(i), 'tick', 0.45]] : [])),
+    [4.9, 'ding', 0.5],
+    [10.15, 'ding', 0.7],
+  ]);
 
   function render(t) {
-    $('#cam').style.transform = `scale(${1 + 0.08 * t / DUR})`;  // slow constant push-in
-    $('#grid').style.transform = `translateY(${-t * 12}px)`;
+    FX.camera('#cam', t, DUR, { push: 0.08, shakes: [[0.9, 16], [10.05, 10]] });
+    $('#grid').style.transform = `translateY(${-t * 12}px)`;                     // parallax: grid slow, glows drift
     $('#g1').style.transform = `translate(${-250 + Math.sin(t * 0.5) * 120}px, ${200 + Math.cos(t * 0.4) * 140}px)`;
     $('#g2').style.transform = `translate(${450 + Math.cos(t * 0.45) * 120}px, ${1100 + Math.sin(t * 0.35) * 160}px)`;
+    FX.scenes(SCENES, t);
+    FX.items(ITEMS, t);
 
-    for (const [sel, tin, tout] of SCENES) {          // cross-fade between scenes
-      const a = smooth((t - tin) / 0.6), b = smooth((t - tout) / 0.6);
-      const el = $(sel);
-      el.style.opacity = a * (1 - b);
-      el.style.transform = `translateY(${-90 * b}px) scale(${1 - 0.04 * b})`;
-    }
-    for (const [sel, start, from, dur = 0.8] of ITEMS) {
-      const p = ease((t - start) / dur), el = $(sel);
-      el.style.opacity = p;
-      el.style.transform = `translate(${(from.x || 0) * (1 - p)}px, ${(from.y || 0) * (1 - p)}px) rotate(${(from.r || 0) * (1 - p)}deg)`;
-    }
+    // scene 1
+    FX.words('#s1-l1 .tx', t, 0.15, { each: 0.12 });
+    FX.words('#s1-l2 .tx', t, 0.45, { each: 0.12 });
+    $('#count').textContent = Math.round(247 * ease.out((t - 1.3) / 1.2));
 
-    $('#count').textContent = Math.round(247 * ease((t - 1.0) / 1.5));
-    const n = Math.floor(clamp((t - 3.7) / 1.1) * CMD.length);
+    // scene 2
+    FX.highlight('#mark', t, 3.5, { color: '#8b6cff66', height: 0.9, dur: 0.45 });
+    const n = Math.floor(clamp((t - TYPE_AT) / TYPE_FOR) * CMD.length);
     $('#typed').textContent = CMD.slice(0, n) + (n < CMD.length || Math.floor(t * 2.5) % 2 ? '▌' : ' ');
-    const ok = ease((t - 4.9) / 0.6);
-    $('.ok').style.opacity = ok;
+    const ok = ease.back((t - 4.9) / 0.5);
+    $('.ok').style.opacity = clamp((t - 4.9) / 0.2);
     $('.ok').style.transform = `translateY(${30 * (1 - ok)}px)`;
+
+    // scene 3
+    FX.draw('#squiggle', t, 10.5, 0.6);
+    FX.words('#s3-sub .tx', t, 10.6, { each: 0.08, y: 40 });
+    FX.burst('#confetti', t, 10.05, { x: 540, y: 760, n: 60 });
+    $('#cta').style.transform = `scale(${1 + 0.035 * Math.sin(Math.max(0, t - 11.9) * Math.PI * 2 / 1.1)})`;
     $('#arrow').style.transform = `translateY(${-8 * Math.sin(t * 6)}px)`;
   }
   window.render = render;
