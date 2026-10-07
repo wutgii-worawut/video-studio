@@ -38,7 +38,10 @@ node render.mjs <ชื่อ> check      ตัวหนังสือล้�
 node render.mjs <ชื่อ> stills     ภาพนิ่ง → output/stills/
 node render.mjs <ชื่อ> video      → output/<ชื่อ>.mp4 (motion blur 8 ภาพย่อยต่อเฟรม + เสียง)
 node render.mjs <ชื่อ> video 1    ร่างเร็ว ไม่มี motion blur
+node render.mjs <ชื่อ> video 8 4  กำหนดจำนวน Chrome ที่ช่วยกันถ่ายเอง (ปกติตั้งให้เองตามคอร์/RAM สูงสุด 8)
 ```
+
+ความเร็ว: คลิป 15 วินาที + motion blur ≈ 30 วินาที
 
 เสียง: ไม่มีเพลง → ใช้แค่ SFX · ไม่มีทั้งคู่ → คลิปเงียบ · ชื่อ SFX ที่หาไฟล์ไม่เจอจะถูกข้ามและแจ้งใน log
 
