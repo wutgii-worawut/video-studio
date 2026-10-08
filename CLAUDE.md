@@ -4,6 +4,7 @@
 
 - Ask the user before installing anything; say what and with which command.
 - Generated files go in `projects/<name>/output/`; `source/` and `brand/` hold only hand-edited files.
+- Voiceover: keep the user's original (e.g. `brand/ElevenLabs_….mp3`) while working on the clip; when the clip is done and the user asks to commit/push, delete the original so only `brand/voice.mp3` is committed.
 
 ## Issue log (`issues/`)
 
