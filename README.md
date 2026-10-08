@@ -9,6 +9,7 @@ CLAUDE.md                  กฎพื้นฐานที่ Claude Code อ�
 render.mjs                 ตัวเรนเดอร์ ใช้ร่วมกันทุกโปรเจกต์
 lib/fx.js                  คลังลูกเล่น: ตัวหนังสือทีละคำ ไฮไลต์ ขีดฆ่า spring เปลี่ยนฉาก กล้องสั่น วาดเส้น confetti
 sfx/                       เสียงเอฟเฟกต์ในตัว whoosh tick pop impact ding (สร้างใหม่: node sfx/make-sfx.mjs)
+issues/                    บันทึกปัญหา สาเหตุ วิธีแก้ (1 ปัญหา = 1 ไฟล์ มี tags)
 models/                    โมเดล Whisper สำหรับถอดเสียงพากย์ (ไม่เข้า git)
 styles/                    แนวภาพที่ใช้ซ้ำได้ 1 แนว = 1 โฟลเดอร์ (style.md + example.png + โค้ดเฉพาะแนว)
   cute-doodle/             Kawaii Doodle: เส้นสั่น line boil (boil.js) พาสเทล กระดาษลายจุด + มาสคอตโมจิ (mochi.js: ชุดนักดาบ ขยับปากตามเสียง)

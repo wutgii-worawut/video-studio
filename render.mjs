@@ -141,8 +141,9 @@ if (mode === 'check') {
   if (code) throw new Error(`ffmpeg exited ${code}`);
   if (silent !== final) {
     // the silent video is input 0, as stdin was in pass 1, so the audio graph's input numbers still match
-    execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', silent, ...audio.inputs, '-filter_complex', audio.graph.join(';'),
-      '-map', '0:v', ...audio.map, '-c:v', 'copy', '-movflags', '+faststart', final], { stdio: 'inherit' });
+    // -nostdin: with an inherited stdin from a background shell ffmpeg can spin forever waiting for keypresses
+    execFileSync('ffmpeg', ['-nostdin', '-y', '-v', 'error', '-i', silent, ...audio.inputs, '-filter_complex', audio.graph.join(';'),
+      '-map', '0:v', ...audio.map, '-c:v', 'copy', '-movflags', '+faststart', final], { stdio: ['ignore', 'inherit', 'inherit'] });
     unlinkSync(silent);
   }
   console.log(`\nsaved ${out}/${project}.mp4 (motion blur ${BLUR > 1 ? BLUR + ' subframes' : 'off'}, ${WORKERS} workers, ${((Date.now() - startedAt) / 1000).toFixed(0)}s)`);

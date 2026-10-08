@@ -1,0 +1,36 @@
+Images from The Movie Database (themoviedb.org), Sword of Coming (tv/259537) season 2. Copyright belongs to the rights holders.
+s2e01 https://image.tmdb.org/t/p/w1280/5gN89epmkfWbOdkCIy3GiClqRr6.jpg
+s2e02 https://image.tmdb.org/t/p/w1280/kP138uws3BGzShpdj2JkcFDVuJK.jpg
+s2e03 https://image.tmdb.org/t/p/w1280/8wcXIYIbZR1RjcQZXvxClfdwCfY.jpg
+s2e04 https://image.tmdb.org/t/p/w1280/m6IlMfvrMuIqHhBTxfVtkPDfU4n.jpg
+s2e05 https://image.tmdb.org/t/p/w1280/1U8Kq1hQ1OYVf8KPaOdMsCBm4qj.jpg
+s2e06 https://image.tmdb.org/t/p/w1280/5BZzYVfTZS4agKnFRYWc7XUpnAw.jpg
+s2e07 https://image.tmdb.org/t/p/w1280/qWKzjcohGl0oqm2FpjSCOsfhbnP.jpg
+s2e08 https://image.tmdb.org/t/p/w1280/9ygOeoeD1PY2rGgeLq3xVoa8N2H.jpg
+s2e09 https://image.tmdb.org/t/p/w1280/cVIoxolC4LS3uH4gGsBENzA8c4F.jpg
+s2e10 https://image.tmdb.org/t/p/w1280/q9A0lhH0YET8oTYP6cEswQXARHK.jpg
+s2e11 https://image.tmdb.org/t/p/w1280/meAkxCGiI33MKDykGtl1uwYnkly.jpg
+s2e12 https://image.tmdb.org/t/p/w1280/69L0p7jRmCnXpkv319YlSoODwl7.jpg
+s2e13 https://image.tmdb.org/t/p/w1280/xG2u16H8G34FLd3n7YooixAnjHe.jpg
+s2e14 https://image.tmdb.org/t/p/w1280/yOc54lfHLgz1MUjhYJcdan56e7t.jpg
+s2e15 https://image.tmdb.org/t/p/w1280/PRmgL6vQGUYeb2rBmrHNOuK343.jpg
+s2e16 https://image.tmdb.org/t/p/w1280/lcp6dNKM1IHvCCGLlSzc5OywuMA.jpg
+s2e17 https://image.tmdb.org/t/p/w1280/9Kr0xABbrQc0DKIcnT2kcSj1Z6q.jpg
+s2e18 https://image.tmdb.org/t/p/w1280/oU3o0y20i65ifd5IvoDkN0erOEe.jpg
+s2e19 https://image.tmdb.org/t/p/w1280/hcZs2CnIg8q2EAhn9nKXFd664wu.jpg
+s2e20 https://image.tmdb.org/t/p/w1280/3lgIuOG0x5t1sl03WDJxyFYONVF.jpg
+s2e21 https://image.tmdb.org/t/p/w1280/fv1MWM5o8nd7GegyjLH3sS5ogx6.jpg
+s2e22 https://image.tmdb.org/t/p/w1280/ot7hK9nP4g43aX6OGQehziQqtN9.jpg
+s2e23 https://image.tmdb.org/t/p/w1280/7CGGCr3NwASLaAkggXG7KWxniO3.jpg
+s2e24 https://image.tmdb.org/t/p/w1280/pNMzUlDlPIXBp5VZYPsMY4bAYTp.jpg
+s2e25 https://image.tmdb.org/t/p/w1280/vEsJFFBN1SP0C0xIZpZvYTvWLeV.jpg
+s2e26 https://image.tmdb.org/t/p/w1280/1Z7AT40AaX9kzV0DDTDooXDFkgj.jpg
+s2e27 https://image.tmdb.org/t/p/w1280/n6HyfzFgl73YY9kcLd5ADiDCp6x.jpg
+snake-1 (supplied by the user: giant white snake facing Chen Ping'an)
+snake-2 (supplied by the user: white snake vs sword qi)
+li-huai https://q4.itc.cn/images01/20260102/87134d2b869a4c4f9434471ea3f97a48.jpeg (supplied by the user)
+lin-shouyi https://q9.itc.cn/images01/20260102/34a046a600804393b087ba425d51663c.jpeg (supplied by the user)
+qi-jingchun https://images.openai.com/static-rsc-4/DiDDANtXD1Tzvt3IOZDsgSBN7AAt5gB10P29EBabcDq5oyNOcci-5B1LxnEIGQtyZ0UPvxFKsmfjgNrrH26LyPqp2Yve-Sm9HvfoXZDrZxRt5D_S5AH41VIBPVbGWtF1VPUBg0x3eX1aI9spHPlqops-TpTj2XQM9MNoCTtcxrSpwArnOIwcqhrnpTYWu7r3?purpose=fullsize (supplied by the user)
+luopo-map https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSPW0HvrV47RuIYCT2jQCZNwIW3zAK-2sPNjg-YBRmaehYAmElEUx0Wg4M&s=10 (supplied by the user; 640x480 thumbnail)
+sword-wall https://q7.itc.cn/images01/20241201/5d7c0d6cd48c4aa385029052f5ee5715.jpeg (supplied by the user)
+daili-cavalry (supplied by the user: Great Li iron cavalry)
