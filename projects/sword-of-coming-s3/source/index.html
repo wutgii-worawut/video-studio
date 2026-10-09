@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>sword of coming 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mali:wght@600;700&family=Ma+Shan+Zheng&display=block" rel="stylesheet">
+<style>
+  :root { --paper:#fff8ec; --ink:#2b2b2b; --red:#d9332b; --blue:#3e6fb0; --butter:#ffe08a; --mint:#a8e6cf; --pink:#ff9eb5; --sky:#a0d2ff; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1080px; height:1920px; overflow:hidden; background:var(--paper); color:var(--ink); font-family:'Mali', sans-serif; }
+  #stage { position:absolute; left:0; top:0; width:1080px; height:1920px; overflow:hidden; background:var(--paper); transform-origin:0 0; }
+  #cam { position:absolute; inset:0; transform-origin:50% 50%; }
+  #scrub { position:fixed; left:12px; right:12px; bottom:12px; display:flex; gap:12px; align-items:center; font:600 14px/1 sans-serif; color:#333; z-index:9; }
+  #scrub input { flex:1; }
+  .render #scrub { display:none; }
+
+  /* every scene is solid paper with polka dots, so any transition (wipe/circle) covers the one below */
+  .scene { position:absolute; inset:0; opacity:0; background-color:var(--paper); background-image:radial-gradient(#e8d9c2 4px, transparent 5px); background-size:60px 60px; }
+  svg .o { stroke:var(--ink); stroke-width:8; stroke-linejoin:round; stroke-linecap:round; }
+  svg * { transform-box:fill-box; transform-origin:center; }
+  .art { position:absolute; opacity:0; overflow:visible; }
+  .ln { position:absolute; left:0; right:0; text-align:center; white-space:nowrap; opacity:0; }
+  .lb { position:absolute; white-space:nowrap; opacity:0; }
+  .tx { display:inline-block; font-weight:700; line-height:1.3;
+        text-shadow: -5px -5px 0 var(--paper), 5px -5px 0 var(--paper), -5px 5px 0 var(--paper), 5px 5px 0 var(--paper),
+                     0 -6px 0 var(--paper), 0 6px 0 var(--paper), -6px 0 0 var(--paper), 6px 0 0 var(--paper), 8px 9px 0 #00000022; }
+  .zh { font-family:'Ma Shan Zheng', 'Mali', serif; font-weight:400; }
+  .pill { display:inline-block; background:var(--butter); border:6px solid var(--ink); border-radius:999px; padding:6px 34px 12px; box-shadow:7px 8px 0 #00000026; }
+  .pill.white { background:#fff; } .pill.red { background:var(--red); color:#fff; } .pill.mint { background:var(--mint); } .pill.sky { background:var(--sky); } .pill.pink { background:var(--pink); }
+  .pill .tx { text-shadow:none; }
+  .photo { position:absolute; inset:0; background:#fff; border:7px solid var(--ink); border-radius:26px; padding:12px; box-shadow:10px 12px 0 #00000026; overflow:hidden; }
+  .photo .img { position:relative; width:100%; height:100%; border-radius:14px; overflow:hidden; background:#ddd; }
+  .photo .sl { position:absolute; inset:0; }
+  .photo .sl img { position:absolute; inset:0; width:100%; height:100%; display:block; object-fit:cover; }
+  .photo::before { content:''; position:absolute; left:50%; top:-8px; width:150px; height:46px; margin-left:-75px; background:#ffe08acc; transform:rotate(-4deg); z-index:2; }
+  /* name tag on a picture: fades with its slide */
+  .cap { position:absolute; left:18px; bottom:18px; background:#fff; border:5px solid var(--ink); border-radius:999px; padding:2px 24px 8px; font-weight:700; font-size:34px; line-height:1.3; box-shadow:5px 6px 0 #00000026; }
+  .seal { display:inline-block; background:var(--red); color:#fff; border-radius:12px; padding:2px 14px 8px; transform:rotate(-6deg); box-shadow:5px 6px 0 #00000026; }
+  #mochi { position:absolute; left:0; top:0; width:400px; height:400px; overflow:visible; transform-origin:0 0; }
+</style>
+<script src="../../../lib/fx.js"></script>
+<script src="../../../styles/cute-doodle/mochi.js"></script>
+<script src="voice.js" onerror="window.VOICE = null"></script>  <!-- made by: node render.mjs sword-of-coming-s3 voice -->
+</head>
+<body>
+<script src="../../../styles/cute-doodle/boil.js"></script>
+<div id="stage">
+<div id="cam">
+  <div id="scenes"></div>
+  <svg class="boil" id="backdrop" viewBox="0 0 1080 1920" style="position:absolute;inset:0;width:1080px;height:1920px;overflow:visible;pointer-events:none"></svg>
+  <svg class="boil" id="clouds" viewBox="0 0 1080 1920" style="position:absolute;inset:0;width:1080px;height:1920px;overflow:visible;pointer-events:none"></svg>
+  <svg id="chibi-chen" class="boil" viewBox="0 0 300 360" style="position:absolute;left:0;top:0;width:240px;height:288px;overflow:visible;opacity:0"></svg>
+  <svg id="mochi" class="boil" viewBox="0 0 400 400"></svg>
+</div>
+</div>
+<div id="scrub"><input type="range" min="0" max="60" step="0.0333" value="0"><span>0.00s</span></div>
+
+<script>
+  // กระบี่จงมา ภาค 3 (ยังไม่ฉาย) · Mochi (wuxia outfit) tells what the official synopsis and the novel say. Facts come only from brand/brand.md; pictures from brand/web/ (crops in source/img/).
+  // Every frame is a pure function of t. Section start times live in AT: re-time to the voiceover by editing that one table.
+  const $ = (s) => document.querySelector(s);
+  const { ease, clamp } = FX;
+  const AT = { hook: 0, journey: 11.77, zuoyou: 26.09, grow: 50.87, wall: 65.8, end: 89.97 };   // synced to brand/voice.mp3 (Whisper + silencedetect)
+  window.DUR = 106;                                          // voiceover is 104.5 s
+  window.STILLS = [3, 9, 15, 21, 25, 28, 34, 38, 43.2, 44.3, 48, 56, 58.7, 68, 77, 83, 86, 93, 101];
+  const DUR = window.DUR;
+
+  // ---- building blocks ----------------------------------------------------------------------------
+  const SLIDES = [];                                         // [slide id, from time] for the cross-fades
+  const scene = (id) => { $('#scenes').insertAdjacentHTML('beforeend', `<div class="scene" id="${id}"></div>`); return '#' + id; };
+  const add = (sc, html) => { $(sc).insertAdjacentHTML('beforeend', html); };
+  const line = (id, top, text, size, style = '', cls = '') => `<div class="ln" id="${id}" style="top:${top}px"><span class="tx boilT ${cls}" style="font-size:${size}px;${style}">${text}</span></div>`;
+  const label = (id, x, y, text, size = 40, kind = '') => `<div class="lb" id="${id}" style="left:${x}px;top:${y}px"><span class="pill ${kind}"><span class="tx" style="font-size:${size}px">${text}</span></span></div>`;
+  const seal = (id, x, y, zh, size = 52) => `<div class="lb" id="${id}" style="left:${x}px;top:${y}px;z-index:3"><span class="seal zh" style="font-size:${size}px">${zh}</span></div>`;
+  // list = [[time, image, name tag?]]; image is a file in brand/web/, or a path (img/…) relative to source/
+  const shot = (id, list, x, y, w, h, tilt = 0) => `<div class="art" id="${id}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">
+      <div class="photo" style="transform:rotate(${tilt}deg)"><div class="img">${list.map(([at, n, cap], k) => {
+        SLIDES.push([`${id}-${k}`, k ? at : -99]);
+        const src = n.includes('/') ? n : `../brand/web/${n}`;
+        return `<div class="sl" id="${id}-${k}"><img src="${src}">${cap ? `<span class="cap">${cap}</span>` : ''}</div>`; }).join('')}</div></div></div>`;
+  const pop = (sel, at, o = {}) => [sel, at, { scale: 0.3, ease: 'back', sfx: 'pop', vol: 0.5, ...o }];
+  const ITEMS = [], WORDS = [], EXTRA_SFX = [];
+
+  const CLOUD = 'M-60 10 C -80 -20, -40 -40, -20 -20 C -20 -50, 30 -50, 30 -20 C 50 -40, 80 -20, 66 6 C 80 20, 60 34, 40 26 L -40 26 C -70 30, -78 18, -60 10 Z';
+  $('#clouds').innerHTML = [[70, 1600, 1.1], [1010, 1720, 1.3]]
+    .map(([x, y, s], i) => `<g transform="translate(${x} ${y}) scale(${s})"><g id="cl${i}"><path class="o" d="${CLOUD}" fill="#fff" stroke-width="5"/>
+      <path d="M-30 -2 C -24 -14, -8 -12, -8 0 M14 -6 C 20 -18, 36 -14, 34 -2" stroke="#2b2b2b" stroke-width="4" fill="none" stroke-linecap="round"/></g></g>`).join('');
+
+  // ---- 1 · hook + title (layout A: picture on top, big Mochi below) ------------------------------------------
+  const s1 = scene('s1');
+  add(s1, shot('s1-shot', [[0, 'img/s3-poster.jpg'], [8.3, 'chen-s2e27.jpg']], 60, 150, 960, 640, -1.5));
+  add(s1, line('s1-zh', 690, '剑来 · 三', 200, 'color:#d9332b;line-height:1.05', 'zh'));
+  add(s1, `<div class="ln" id="s1-th" style="top:910px"><span class="pill"><span class="tx" style="font-size:60px">กระบี่จงมา ภาค 3</span></span></div>`);
+  add(s1, label('s1-p1', 70, 1060, 'ส่งกระบี่ หรือเดินเข้าสู่อันตราย?', 34, 'white'));
+  ITEMS.push(['#s1-shot', 0.1, { scale: 0.3, r: -10, ease: 'spring', dur: 0.9, sfx: 'whoosh', vol: 0.6 }],
+             ['#s1-zh', 0.6, { scale: 2.4, ease: 'spring', dur: 0.8, sfx: 'impact', vol: 0.7 }],
+             pop('#s1-th', 1.3, { sfx: 'ding', vol: 0.5 }), pop('#s1-p1', 4.5));
+
+  // ---- story sections (layout B: picture, three keyword pills, small Mochi in the corner, chibi Chen) ------------
+  // [key, title, seal, pictures [[delay, image, name tag]], pills [[delay, text, colour]], picture tilt]
+  const STORY = [
+    ['journey', 'ไปเขาเต้าเสวียน', '倒悬山', [[0, 'img/s3-poster.jpg', 'เรื่องย่อทางการ · Tencent'], [12.2, 'img/dragon-art.jpg', 'ภาพประกอบ']],
+      [[1.7, 'เดินทางลำพัง ไปส่งกระบี่', 'white'], [7.7, 'เมืองเหล่าหลง · พบคนคุ้นเคย', 'sky'], [12.2, 'หุบเหวมังกร · อันตราย!', 'red']], -1],
+    ['zuoyou', 'จั่วโย่ว', '左右', [],                                // no official picture: drawn on the stage below instead
+      [[4.1, 'ศิษย์ของปราชญ์เหวินเซิ่ง', 'white'], [6.7, 'ศิษย์พี่ของเฉินผิงอัน', 'sky'], [18, 'กระบี่เดียว กวาดหุบเหวมังกร!', 'red']], 1, 'top'],
+    ['grow', 'เก่งขึ้นแค่ไหน?', '磨砺', [[0, 'img/chen-s2-poster.jpg', 'เฉินผิงอัน'], [10.6, 'chen-dragon.jpg', 'เฉินผิงอัน']],
+      [[6.1, 'ขัดเกลาฝีมือหมัด', 'white'], [7.7, 'ฝึกกระบี่', 'sky'], [8.6, 'เรียนรู้จากประสบการณ์จริง', 'mint']], -1],
+    ['wall', 'กำแพงปราณกระบี่', '剑气长城', [[0, 'sword-wall-2.jpg', 'กำแพงปราณกระบี่'], [8.8, 'thirteenth-sword.jpg', 'ภาพยนตร์ ศึกสิบสาม'], [16.5, 'ning-yao-2.png', 'หนิงเหยา']],
+      [[4.2, 'แนวหน้าต้านเผ่าปีศาจ', 'red'], [16.5, 'เชื่อมโยงกับหนิงเหยา', 'pink'], [18.7, 'ยังไม่ยืนยันว่าภาค 3 จะถึง', 'white']], 1],
+  ];
+  for (const [key, title, zh, pics, pills, tilt, pillsAt] of STORY) {
+    const sc = scene('s-' + key), at = AT[key];
+    add(sc, line(`${key}-a`, 200, title, 88));
+    if (pics.length) {
+      add(sc, shot(`${key}-shot`, pics.map(([d, n, cap]) => [at + d, n, cap]), 60, 340, 960, 600, tilt));
+      ITEMS.push([`#${key}-shot`, at + 0.2, { y: 160, ease: 'back', dur: 0.7, sfx: 'whoosh', vol: 0.5 }]);
+    }
+    add(sc, seal(`${key}-zh`, 1020 - 60 * zh.length, 305, zh));          // right-aligned whatever the length
+    pills.forEach(([d, text, kind], i) => add(sc, label(`${key}-l${i}`, 70, pillsAt === 'top' ? 430 + i * 110 : 990 + i * 120, text, 34, kind)));   // 34px keeps the longest pill clear of corner Mochi
+    ITEMS.push([`#${key}-a`, at + 0.1, { dur: 0.2 }],
+               pop(`#${key}-zh`, at + 0.6, { r: 20 }),
+               ...pills.map(([d], i) => [`#${key}-l${i}`, at + d, { x: -80, ease: 'back', sfx: 'pop', vol: 0.4 }]));
+    WORDS.push([`#${key}-a .tx`, at + 0.1]);
+  }
+
+  // ---- Zuo You section: no official picture, so the lower half is a stage where chibi Chen and a drawn Zuo You act out the dragon gully ----
+  // Zuo You is drawn after the right-most figure on the 文圣一脉 poster (identified by the user): long loose hair, dark ragged robe, sword on his back.
+  const ZY_LAND = AT.zuoyou + 2.6, BANG = AT.zuoyou + 6.7, FILM = [AT.zuoyou + 10.4, AT.zuoyou + 15.3], SLASH = AT.zuoyou + 18;
+  const DRAW = SLASH - 1, SHEATHE = SLASH + 2;
+  const onStage = (t) => clamp((t - AT.zuoyou + 0.3) / 0.6) * (1 - clamp((t - AT.grow + 0.3) / 0.6));   // 0 = normal layout, 1 = stage
+
+  add('#s-zuoyou', `<div class="lb" id="spoil-tag" style="left:70px;top:322px;z-index:3"><span class="pill red"><span class="tx" style="font-size:40px">สปอยล์นิยาย!</span></span></div>`);
+  ITEMS.push(pop('#spoil-tag', AT.zuoyou + 0.2, { r: -12, sfx: 'impact', vol: 0.5 }), pop('#zy-film', FILM[0], { r: -10 }));
+
+  const SKIN_ZY = '#ffe3cc', ZY_INK = '#2b2b2b', ZY_ROBE = '#3a3a46', ZY_SPIKES = '<path class="o" d="M118 52 L 96 2 M138 44 L 130 -8 M162 44 L 172 -6 M184 52 L 210 4" fill="none" stroke-width="10"/>';
+  const ZY_WAVES = (y) => `M-160 ${y} ` + Array.from({ length: 13 }, (_, i) => `Q ${i * 120 - 100} ${y + (i % 2 ? 16 : -16)}, ${i * 120 - 40} ${y}`).join(' ') + ' V2100 H-160 Z';
+  add('#s-zuoyou', `<svg class="boil" id="zy-stage" viewBox="0 0 1080 1920" style="position:absolute;inset:0;transform:translateY(-120px);width:1080px;height:1920px;overflow:visible;pointer-events:none">
+    <path d="M0 1600 V1260 L 90 1180 L 170 1300 L 280 1150 L 400 1320 L 520 1220 L 640 1340 L 760 1200 L 880 1310 L 1000 1170 L 1080 1240 V1600 Z" fill="#e6ddcb"/>
+    <path d="M0 1260 L 90 1180 L 170 1300 L 280 1150 L 400 1320 L 520 1220 L 640 1340 L 760 1200 L 880 1310 L 1000 1170 L 1080 1240" fill="none" stroke="#bfb29a" stroke-width="6"/>
+    <g id="zy-dragon">
+      <path class="o" d="M40 1650 C 70 1500, 190 1500, 220 1650" fill="none" stroke-width="66"/><path d="M40 1650 C 70 1500, 190 1500, 220 1650" fill="none" stroke="#4f8f7f" stroke-width="50"/>
+      <path class="o" d="M80 1550 l 14 -34 l 14 30 l 16 -36 l 14 34" fill="#ffe08a" stroke-width="5"/>
+      <path class="o" d="M340 1650 C 360 1560, 440 1560, 460 1650" fill="none" stroke-width="56"/><path d="M340 1650 C 360 1560, 440 1560, 460 1650" fill="none" stroke="#4f8f7f" stroke-width="40"/>
+      <path class="o" d="M230 1660 C 200 1540, 230 1440, 300 1410" fill="none" stroke-width="66"/><path d="M230 1660 C 200 1540, 230 1440, 300 1410" fill="none" stroke="#4f8f7f" stroke-width="50"/>
+      <g id="zy-dhead">
+        <path class="o" d="M266 1352 L 236 1290 M 292 1342 L 280 1278" fill="none" stroke-width="12"/>
+        <path class="o" d="M250 1400 C 250 1350, 300 1330, 360 1345 C 400 1355, 430 1375, 440 1398 C 400 1406, 360 1408, 330 1414 C 296 1440, 256 1432, 250 1400 Z" fill="#4f8f7f" stroke-width="6"/>
+        <path class="o" d="M330 1418 C 370 1420, 410 1428, 432 1442 C 390 1462, 340 1458, 304 1436 Z" fill="#4f8f7f" stroke-width="6"/>
+        <path d="M360 1410 l 8 14 l 8 -14 M 388 1408 l 8 14 l 8 -14" fill="#fff" stroke="#2b2b2b" stroke-width="3"/>
+        <circle class="o" cx="318" cy="1370" r="13" fill="#fff" stroke-width="5"/><circle cx="322" cy="1370" r="6" fill="#2b2b2b"/>
+        <path class="o" d="M436 1386 C 470 1370, 490 1340, 480 1306" fill="none" stroke-width="6"/>
+        <path class="o" d="M262 1356 l -20 -8 l 10 18 l -22 2 l 18 14" fill="#ffe08a" stroke-width="5"/>
+      </g>
+    </g>
+    <path id="zy-water" class="o" d="${ZY_WAVES(1610)}" fill="#a0d2ff" stroke-width="6" opacity=".92"/>
+    <ellipse class="o" cx="620" cy="1700" rx="180" ry="40" fill="#b8b2a8" stroke-width="6"/>
+    <path class="o" d="M792 2100 L 800 1430 C 830 1400, 1050 1395, 1080 1425 V2100 Z" fill="#b8b2a8" stroke-width="6"/>
+    <g id="zy-fly" style="opacity:0"><svg x="810" y="1100" width="240" height="320" viewBox="0 0 300 400" overflow="visible">
+      <g id="zy-back-sword"><path class="o" d="M60 380 L 262 100" stroke-width="28"/><path d="M60 380 L 262 100" stroke="#5a3b2a" stroke-width="16" stroke-linecap="round"/>
+        <path class="o" d="M250 116 L 290 62" stroke-width="12"/><path class="o" d="M236 104 L 268 128" stroke-width="10"/></g>
+      <path d="M52 160 C 36 260, 56 330, 84 368 L 216 368 C 244 330, 264 260, 248 160 Z" fill="${ZY_INK}"/>
+      <path class="o" d="M92 236 C 72 270, 62 320, 60 372 L 82 360 L 100 382 L 122 362 L 146 384 L 170 362 L 192 382 L 216 362 L 240 374 C 238 320, 228 270, 208 236 Z" fill="${ZY_ROBE}" stroke-width="6"/>
+      <path d="M124 238 L 150 272 L 176 238" stroke="#8f8f9c" stroke-width="10" fill="none"/>
+      <path class="o" d="M76 300 H224" stroke="#7a6a55" stroke-width="12"/>
+      <rect class="o" x="112" y="370" width="28" height="22" rx="8" fill="#22222a" stroke-width="6"/><rect class="o" x="160" y="370" width="28" height="22" rx="8" fill="#22222a" stroke-width="6"/>
+      <path class="o" d="M100 252 L 64 290 L 96 316" fill="none" stroke-width="30"/><path d="M100 252 L 64 290 L 96 316" fill="none" stroke="${ZY_ROBE}" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+      <ellipse class="o" cx="150" cy="146" rx="100" ry="92" fill="${SKIN_ZY}"/>
+      <g id="zy-face"><path class="o" d="M98 130 L 128 138 M202 130 L 172 138" fill="none" stroke-width="8"/>
+        <path class="o" d="M100 158 H128 M172 158 H200" fill="none" stroke-width="7"/><path class="o" d="M140 194 H160" fill="none" stroke-width="6"/>
+        <path class="o" d="M50 170 C 40 80, 110 40, 150 44 C 200 40, 262 80, 250 170 L 236 118 L 222 150 L 196 102 L 178 132 L 150 98 L 124 132 L 104 102 L 80 150 L 64 118 Z" fill="${ZY_INK}" stroke-width="6"/>
+        <path d="M56 160 C 44 220, 52 262, 62 300 M244 160 C 256 220, 248 262, 238 300" stroke="${ZY_INK}" stroke-width="18" fill="none" stroke-linecap="round"/></g>
+      ${ZY_SPIKES}
+      <g id="zy-armR" style="transform-box:view-box;transform-origin:200px 252px">
+        <g id="zy-blade" style="opacity:0"><path class="o" d="M212 312 L 230 476" stroke-width="18"/><path d="M212 312 L 230 476" stroke="#e6eef5" stroke-width="8" stroke-linecap="round"/><path class="o" d="M192 320 H 232" stroke-width="10"/></g>
+        <path class="o" d="M200 252 L 210 302" stroke-width="30"/><path d="M200 252 L 210 302" stroke="${ZY_ROBE}" stroke-width="20" stroke-linecap="round"/>
+        <circle class="o" cx="210" cy="308" r="13" fill="${SKIN_ZY}" stroke-width="6"/></g>
+      <g id="zy-tag" transform="translate(150 -50)"><rect class="o" x="-120" y="-44" width="240" height="72" rx="36" fill="#fff" stroke-width="5"/>
+        <text x="0" y="10" text-anchor="middle" font-family="Mali" font-weight="700" font-size="46" fill="#2b2b2b">จั่วโย่ว</text></g>
+    </svg></g>
+    <g id="zy-bang" style="opacity:0"><circle class="o" cx="760" cy="1335" r="32" fill="#fff" stroke-width="6"/><text x="760" y="1355" text-anchor="middle" font-family="Mali" font-weight="700" font-size="52" fill="#d9332b">!</text></g>
+    <path id="zy-slash-ink" d="M1060 1110 C 720 1300, 420 1500, 30 1830" stroke="#2b2b2b" stroke-width="46" fill="none" stroke-linecap="round"/>
+    <path id="zy-slash" d="M1060 1110 C 720 1300, 420 1500, 30 1830" stroke="#fff" stroke-width="26" fill="none" stroke-linecap="round"/>
+    <rect id="zy-flash" x="0" y="1080" width="1080" height="840" fill="#fff" opacity="0"/>
+  </svg>`);
+  add('#s-zuoyou', shot('zy-film', [[0, 'img/wensheng-lineage.jpg', 'ภาพยนตร์ สายเหวินเซิ่ง']], 70, 780, 600, 300, -2));   // over the stage's mountains
+  EXTRA_SFX.push([ZY_LAND, 'whoosh', 0.6], [ZY_LAND + 0.5, 'impact', 0.4], [BANG, 'pop', 0.5], [DRAW, 'whoosh', 0.5], [SLASH, 'impact', 0.9]);
+
+  function renderStage(t) {
+    const land = ease.out((t - ZY_LAND) / 0.5);              // drops in from the top right
+    $('#zy-fly').style.opacity = clamp((t - ZY_LAND) * 8);
+    $('#zy-fly').style.transform = `translate(${300 * (1 - land)}px, ${-700 * (1 - land)}px)`;
+    const drawn = t >= DRAW && t < SHEATHE;
+    $('#zy-blade').style.opacity = drawn ? 1 : 0;
+    $('#zy-back-sword').style.opacity = drawn ? 0 : 1;
+    let R = 0;                                               // raise, hold, one stroke down, then sheathe
+    if (t >= DRAW) R = -160 * ease.out((t - DRAW) / 0.4);
+    if (t >= SLASH - 0.1) R = -160 + 200 * ease.out((t - SLASH + 0.1) / 0.2);
+    if (t >= SHEATHE) R = 40 * (1 - ease.out((t - SHEATHE) / 0.3));
+    $('#zy-armR').style.transform = `rotate(${R}deg)`;
+    $('#zy-tag').style.opacity = clamp((t - ZY_LAND - 0.5) / 0.3);
+
+    const sink = clamp((t - SLASH - 0.15) / 0.7);              // the gully is swept: the dragon goes under
+    const lunge = t < ZY_LAND ? 18 * Math.sin(t * 5) : 0;
+    $('#zy-dragon').style.transform = `translate(${lunge - 40 * sink}px, ${260 * sink}px) rotate(${-12 * sink}deg)`;
+    $('#zy-dragon').style.opacity = 1 - sink;
+    $('#zy-dhead').style.transform = `translateY(${10 * Math.sin(t * 2.5)}px)`;
+    $('#zy-water').style.transform = `translate(${50 * Math.sin(t * 1.3)}px, ${6 * Math.sin(t * 2)}px)`;
+    const bang = ease.back((t - BANG) / 0.4) * (1 - clamp((t - BANG - 3) / 0.3));
+    $('#zy-bang').style.opacity = clamp(bang); $('#zy-bang').style.transform = `scale(${bang})`;
+    FX.draw('#zy-slash-ink', t, SLASH - 0.1, 0.22); FX.draw('#zy-slash', t, SLASH - 0.1, 0.22);
+    for (const id of ['#zy-slash-ink', '#zy-slash']) $(id).style.opacity = 1 - clamp((t - SLASH - 1.2) / 0.5);
+    $('#zy-flash').setAttribute('opacity', t >= SLASH ? 0.85 * Math.exp(-(t - SLASH) * 5) : 0);
+    if (t >= FILM[1]) $('#zy-film').style.opacity = 1 - clamp((t - FILM[1]) / 0.3);   // the film card steps aside before the sword stroke
+  }
+
+  // "not overnight": the shortcut gets struck out
+  add('#s-grow', `<div class="lb" id="grow-x" style="left:110px;top:400px;z-index:3"><span class="pill pink"><span class="tx" id="grow-x-t" style="font-size:44px">เก่งข้ามคืน</span></span></div>`);
+  ITEMS.push(pop('#grow-x', AT.grow + 3.5, { r: 8 }));
+  const STRIKE = AT.grow + 4.6;
+  EXTRA_SFX.push([STRIKE, 'tick', 0.7]);
+
+  // ---- last · question to the viewers (A) --------------------------------------------------------------
+  const ASK = AT.end + 8.9;
+  const s9 = scene('s-end');
+  add(s9, shot('end-shot', [[0, 'img/s3-poster.jpg'], [ASK, 'ning-yao-2.png', 'หนิงเหยา']], 60, 160, 960, 640, 1));
+  add(s9, `<div class="ln" id="end-a" style="top:840px"><span class="pill red"><span class="tx" style="font-size:54px">ภาค 3 · ออกเดินทางอีกครั้ง!</span></span></div>`);
+  add(s9, line('end-b', 975, 'ผู้คน · บททดสอบ · ยอดฝีมือ', 50));
+  add(s9, `<div class="ln" id="end-q" style="top:840px"><span class="pill"><span class="tx" style="font-size:62px">รอฉากไหนที่สุด?</span></span></div>`);
+  add(s9, label('end-c1', 70, 990, 'จั่วโย่วชักกระบี่', 38, 'sky'));
+  add(s9, label('end-c2', 640, 990, 'พบหนิงเหยา', 38, 'pink'));
+  ITEMS.push(['#end-shot', AT.end + 0.1, { scale: 0.3, r: 10, ease: 'spring', dur: 0.9, sfx: 'impact', vol: 0.6 }],
+             pop('#end-a', AT.end + 0.4, { sfx: 'ding', vol: 0.6 }), ['#end-b', AT.end + 2.8, { dur: 0.2 }],
+             pop('#end-q', ASK + 0.3, { sfx: 'ding', vol: 0.6 }), pop('#end-c1', ASK + 1, { r: -8 }), pop('#end-c2', ASK + 2.2, { r: 8 }));
+  WORDS.push(['#end-b .tx', AT.end + 2.8]);
+
+  // ---- scene order + transitions (no transition repeats back to back) -------------------------------------
+  const ORDER = [['#s1', AT.hook], ...STORY.map(([key]) => ['#s-' + key, AT[key]]), ['#s-end', AT.end]];
+  const MOVES = ['zoom', 'wipe', 'whip', 'circle', 'zoom'];   // into scene 2, 3, ...
+  const SCENES = ORDER.map(([sel, at], i) => {
+    const into = MOVES[i - 1], out = MOVES[i], next = ORDER[i + 1];
+    const exit = !out ? undefined : out === 'circle' || out === 'wipe' ? 'hold' : out;
+    return [sel, i ? at - 0.3 : -1, next ? next[1] - 0.3 : 999, { enter: into, exit, dur: into === 'circle' ? 0.7 : 0.6 }];
+  });
+  const WHIP_OUT = SCENES.filter(([, , , o]) => o.exit === 'whip').map(([sel, , out]) => [sel, out]);   // fx.js leaves whipped scenes opaque off-screen
+  FX.cues(ITEMS, [...SCENES.slice(1).map(([, at]) => [at, 'whoosh', 0.6]), ...EXTRA_SFX]);
+
+  // ---- Mochi: one narrator moving between the layouts --------------------------------------------------------
+  const A = [540, 1400, 600], B = [905, 1365, 300], TOP = [880, 560, 300];
+  const LAYOUT = [[AT.hook, A], [AT.journey, B], [AT.zuoyou, TOP], [AT.grow, B], [AT.end, A]];
+  const POSE = LAYOUT.flatMap(([at, p], i) => (i ? [[at - 0.2, ...LAYOUT[i - 1][1]], [at + 0.5, ...p]] : [[0, ...p]])).concat([[DUR, ...A]]);
+  const MOOD = [[0, 'sparkle'], [AT.journey, 'determined'], [AT.journey + 12.2, 'shock'], [AT.zuoyou, 'shock'], [AT.zuoyou + 2.5, 'sparkle'], [SLASH, 'shock'],
+                [AT.grow, 'tired'], [AT.grow + 6, 'determined'], [AT.wall, 'shock'], [AT.wall + 16.5, 'happy'], [AT.wall + 18.7, 'tired'], [AT.end, 'happy']];
+  const WAVE_AT = ASK + 3.9;
+
+  // ---- chibi Chen Ping'an (doodle, outfit from the MAL reference image), bottom centre, reacting to the story ----
+  // Drawn in a 300×360 box, shoulders at (100,250)/(200,250).
+  const SKIN = '#ffe3cc', INK = '#2b2b2b';
+  const CHIBI_EYES = {
+    dot:    `<ellipse cx="112" cy="152" rx="10" ry="13" fill="${INK}"/><ellipse cx="188" cy="152" rx="10" ry="13" fill="${INK}"/><circle cx="116" cy="146" r="4" fill="#fff"/><circle cx="192" cy="146" r="4" fill="#fff"/>`,
+    happy:  `<path class="o" d="M98 156 Q112 140 126 156 M174 156 Q188 140 202 156" fill="none" stroke-width="7"/>`,
+    sad:    `<path class="o" d="M98 150 Q112 162 126 150 M174 150 Q188 162 202 150" fill="none" stroke-width="7"/><path d="M200 166 C 206 180, 196 186, 194 176 Z" fill="#a0d2ff"/>`,
+    fierce: `<path class="o" d="M96 132 L126 142 M204 132 L174 142" fill="none" stroke-width="8"/><ellipse cx="112" cy="156" rx="9" ry="10" fill="${INK}"/><ellipse cx="188" cy="156" rx="9" ry="10" fill="${INK}"/>`,
+  };
+  const CHIBI_MOUTH = { dot: 'M142 190 Q150 198 158 190', happy: 'M138 186 Q150 204 162 186', sad: 'M140 196 Q150 188 160 196', fierce: 'M138 194 H162' };
+  // props: 'case' = sword case on his back (delivering the sword), 'sword' = sword in his right hand (training)
+  const CASE = `<path class="o" d="M40 330 L 270 70" stroke-width="40"/><path d="M40 330 L 270 70" stroke="#8a5a3b" stroke-width="28" stroke-linecap="round"/><path d="M58 296 l 22 20 M 236 104 l 22 20" stroke="#ffe08a" stroke-width="8"/>`;
+  const SWORD = `<path class="o" d="M212 312 L 226 450" stroke-width="16"/><path d="M212 312 L 226 450" stroke="#e6eef5" stroke-width="7" stroke-linecap="round"/><path class="o" d="M194 320 H 230" stroke-width="10"/>`;
+  function chibi(eyes, id, prop) {
+    const robe = '#9fb3c8', trim = '#7d92aa';
+    const arm = (side) => {
+      const x = side === 'L' ? 100 : 200, dx = side === 'L' ? -10 : 10;
+      return `<g id="${id}-arm${side}" style="transform-box:view-box;transform-origin:${x}px 250px">
+        <path class="o" d="M${x} 250 L ${x + dx} 300" stroke-width="30"/><path d="M${x} 250 L ${x + dx} 300" stroke="${robe}" stroke-width="20" stroke-linecap="round"/>
+        ${side === 'R' && prop === 'sword' ? SWORD : ''}<circle class="o" cx="${x + dx}" cy="306" r="13" fill="${SKIN}" stroke-width="6"/></g>`;
+    };
+    return `${prop === 'case' ? CASE : ''}
+      <path class="o" d="M96 236 C 80 262, 70 300, 72 332 L 228 332 C 230 300, 220 262, 204 236 Z" fill="${robe}"/>
+      <path d="M84 280 H216 M80 304 H220" stroke="${trim}" stroke-width="6"/>
+      <path class="o" d="M122 238 L150 276 L178 238" fill="none" stroke="#fff" stroke-width="12"/><path d="M122 238 L150 276 L178 238" fill="none" stroke="${INK}" stroke-width="4"/>
+      <path class="o" d="M80 292 H220" stroke="#b9784a" stroke-width="10"/>
+      <rect class="o" x="112" y="330" width="28" height="24" rx="8" fill="#3a3a4a" stroke-width="6"/><rect class="o" x="160" y="330" width="28" height="24" rx="8" fill="#3a3a4a" stroke-width="6"/>
+      <ellipse class="o" cx="150" cy="146" rx="104" ry="96" fill="${SKIN}"/>
+      <ellipse cx="96" cy="178" rx="16" ry="9" fill="#ff9eb5" opacity=".8"/><ellipse cx="204" cy="178" rx="16" ry="9" fill="#ff9eb5" opacity=".8"/>
+      <g id="${id}-eyes" style="transform-box:view-box;transform-origin:150px 152px">${CHIBI_EYES[eyes]}</g>
+      <path class="o" d="${CHIBI_MOUTH[eyes]}" fill="none" stroke-width="6"/>
+      <path class="o" d="M46 160 C 36 72, 110 30, 160 38 C 232 30, 270 96, 254 164 L 240 122 L 228 150 L 214 108 L 194 130 L 178 96 L 160 124 L 142 94 L 124 126 L 104 100 L 92 134 L 72 112 L 62 164 Z" fill="${INK}" stroke-width="6"/>
+      <path class="o" d="M150 40 C 136 8, 178 10, 166 38" fill="${INK}" stroke-width="6"/>
+      ${arm('L')}${arm('R')}`;                                  // arms on top so a raised arm is never hidden by the big head
+  }
+  const CHIBI_ON = [AT.journey, AT.end - 0.3];
+  const CHIBI_MOOD = [[AT.journey, 'dot'], [AT.journey + 12.2, 'fierce'], [ZY_LAND, 'dot'], [SLASH, 'happy'], [AT.grow, 'dot'], [AT.grow + 6, 'fierce'],
+                      [AT.wall, 'dot'], [AT.wall + 16.5, 'happy'], [AT.wall + 18.7, 'dot']];
+  const FIGHT = [[AT.journey + 12.2, ZY_LAND], [AT.grow + 7.7, AT.grow + 10.6]];
+  const PUNCH = [AT.grow + 6.1, AT.grow + 7.7];                 // polishing his fists
+  const CHEER = [SLASH, SLASH + 3];                             // big brother cleared the gully
+  let chibiShown = null;
+  function renderChibi(t) {
+    const el = $('#chibi-chen'), id = 'cb-chen';
+    const p = ease.back((t - CHIBI_ON[0]) / 0.5) * (1 - clamp((t - CHIBI_ON[1]) / 0.3));
+    el.style.opacity = clamp(p * 3);
+    if (p <= 0) return;
+    const mood = (CHIBI_MOOD.filter(([at]) => t >= at).pop() || CHIBI_MOOD[0])[1];
+    const prop = t < AT.grow ? 'case' : t >= FIGHT[1][0] && t < FIGHT[1][1] ? 'sword' : '';
+    if (chibiShown !== mood + prop) { el.innerHTML = chibi(mood, id, prop); chibiShown = mood + prop; }
+    const fight = FIGHT.some(([a, b]) => t >= a && t < b), cheer = t >= CHEER[0] && t < CHEER[1], walking = t < WALK[1];
+    const hop = fight || cheer ? Math.abs(Math.sin(t * 7)) * 14 : walking ? Math.abs(Math.sin(t * 8)) * 10 : 4 * Math.sin(t * 2.6);
+    const k = onStage(t), x = 380 + (470 - 380) * k, y = 1480 + (1210 - 1480) * k, sc = 1 + 0.25 * k;   // bottom spot ↔ the Zuo You stage
+    el.style.transformOrigin = '0 0';
+    el.style.transform = `translate(${x}px, ${y + (1 - p) * 120 - hop}px) scale(${sc})`;
+    let L = 0, R = 0;
+    if (fight) { L = 130; R = -130 + 10 * Math.sin(t * 7); }
+    if (cheer) { L = 150 + 15 * Math.sin(t * 9); R = -150 - 15 * Math.sin(t * 9); }
+    if (walking) { L = 18 * Math.sin(t * 8); R = -L; }
+    if (t >= PUNCH[0] && t < PUNCH[1]) { const c = (t - PUNCH[0]) % 0.5; R = -90 * Math.sin(Math.PI * clamp(c / 0.25)); L = 40; }
+    $(`#${id}-armL`).style.transform = `rotate(${L}deg)`;
+    $(`#${id}-armR`).style.transform = `rotate(${R}deg)`;
+    $(`#${id}-eyes`).style.transform = t % 3.4 < 0.12 ? 'scaleY(0.15)' : 'none';
+  }
+
+  // ---- backdrop behind chibi Chen: the place the narrator is talking about (ground line y=1770, chibi centre x=500) ----
+  const WALK = [AT.journey, AT.journey + 12.2];                // walks to the dragon gully, then stands his ground
+  const BD = (id, inner) => `<g id="bd-${id}" style="opacity:0">${inner}</g>`;
+  const MOUNT_TILE = (x) => `<g transform="translate(${x} 0)"><path d="M0 1770 V1640 L 90 1560 L 170 1650 L 260 1540 L 380 1660 L 450 1600 L 540 1640 V1770 Z" fill="#cfe3d6"/>
+      <path class="o" d="M0 1640 L 90 1560 L 170 1650 L 260 1540 L 380 1660 L 450 1600 L 540 1640" fill="none" stroke-width="6"/></g>`;
+  const WAVES = (y) => `M-120 ${y} ` + Array.from({ length: 12 }, (_, i) => `Q ${i * 120 - 60} ${y + (i % 2 ? 14 : -14)}, ${i * 120} ${y}`).join(' ') + ' V1920 H-120 Z';
+  $('#backdrop').innerHTML = [
+    BD('ground', `<rect x="0" y="1770" width="1080" height="150" fill="#f1e4c9"/><path class="o" d="M0 1770 H1080" stroke-width="6"/>`),
+    BD('journey', `<g id="bd-mount">${[0, 540, 1080].map(MOUNT_TILE).join('')}</g>
+      <g id="bd-road">${Array.from({ length: 14 }, (_, i) => `<path d="M${i * 90} 1810 h44" stroke="#b9a58a" stroke-width="8" stroke-linecap="round"/>`).join('')}</g>`),
+    BD('city', `<g id="bd-gate"><rect class="o" x="-160" y="1660" width="160" height="110" fill="#e8d9c2" stroke-width="6"/><rect class="o" x="240" y="1660" width="160" height="110" fill="#e8d9c2" stroke-width="6"/>
+      <rect class="o" x="0" y="1600" width="40" height="170" fill="#d9332b" stroke-width="6"/><rect class="o" x="200" y="1600" width="40" height="170" fill="#d9332b" stroke-width="6"/>
+      <path class="o" d="M-40 1604 H280 L 244 1556 H-4 Z" fill="#3e6fb0" stroke-width="6"/>
+      <rect class="o" x="66" y="1614" width="108" height="56" rx="6" fill="#ffe08a" stroke-width="5"/>
+      <text x="120" y="1656" text-anchor="middle" font-family="Ma Shan Zheng" font-size="40" fill="#2b2b2b">老龙</text></g>`),
+    BD('gully', `<g id="bd-dragon"><path class="o" d="M110 1760 C 140 1620, 240 1620, 270 1760" fill="none" stroke-width="48"/><path d="M110 1760 C 140 1620, 240 1620, 270 1760" fill="none" stroke="#4f8f7f" stroke-width="34"/>
+        <path class="o" d="M150 1660 l 14 -30 l 14 26 l 16 -32 l 14 30" fill="#ffe08a" stroke-width="5"/>
+        <path class="o" d="M700 1760 C 720 1670, 790 1670, 810 1760" fill="none" stroke-width="44"/><path d="M700 1760 C 720 1670, 790 1670, 810 1760" fill="none" stroke="#4f8f7f" stroke-width="30"/>
+        <path class="o" d="M860 1740 C 880 1690, 930 1680, 950 1640 C 940 1700, 910 1730, 900 1760" fill="#4f8f7f" stroke-width="6"/></g>
+      <ellipse class="o" cx="500" cy="1778" rx="150" ry="30" fill="#b8b2a8" stroke-width="6"/>
+      <path id="bd-water" class="o" d="${WAVES(1745)}" fill="#a0d2ff" stroke-width="6" opacity=".9"/>
+`),
+    BD('grow', `<g><path class="o" d="M110 1770 V1600 M250 1770 V1600 M90 1630 H270 M90 1700 H270" stroke="#b9784a" stroke-width="14"/>
+        <path class="o" d="M140 1600 V1500 M180 1600 V1480 M220 1600 V1510" stroke-width="8"/><path d="M180 1480 l -12 30 h24 Z M140 1500 l -10 24 h20 Z" fill="#2b2b2b"/></g>
+      <g id="bd-dummy" style="transform-box:view-box;transform-origin:705px 1770px"><rect class="o" x="680" y="1560" width="50" height="210" rx="20" fill="#c8925f" stroke-width="6"/>
+        <path class="o" d="M640 1620 H680 M730 1640 H770 M640 1690 H680" stroke="#b9784a" stroke-width="16"/><circle cx="705" cy="1600" r="8" fill="#2b2b2b"/></g>`),
+    BD('wall', `<circle class="o" cx="150" cy="1420" r="34" fill="#e8737d" stroke-width="6"/><circle class="o" cx="290" cy="1380" r="46" fill="#e8737d" stroke-width="6"/>
+      <path class="o" d="M420 1400 A 34 34 0 1 1 420 1460 A 26 26 0 1 0 420 1400 Z" fill="#e8737d" stroke-width="6"/>
+      <path class="o" d="M40 1770 V1530 ${Array.from({ length: 10 }, (_, i) => `H${70 + i * 100} V1500 H${110 + i * 100} V1530`).join(' ')} H1040 V1770 Z" fill="#c9d6e3" stroke-width="6"/>
+      <path d="M40 1600 H1040 M40 1680 H1040 M200 1530 V1600 M520 1530 V1600 M840 1530 V1600 M360 1600 V1680 M680 1600 V1680 M200 1680 V1770 M840 1680 V1770" stroke="#8fa3b8" stroke-width="5"/>
+      <path class="o" d="M130 1790 L 160 1690 M 900 1795 L 870 1700" stroke-width="12"/><path class="o" d="M140 1730 h36 M 868 1736 h36" stroke-width="8"/>
+      <path id="bd-heart" class="o" d="M610 1470 C 590 1440, 550 1460, 570 1490 L 610 1525 L 650 1490 C 670 1460, 630 1440, 610 1470 Z" fill="#ff9eb5" stroke-width="6" style="opacity:0"/>
+      <g id="bd-ask" style="opacity:0"><circle class="o" cx="610" cy="1475" r="42" fill="#fff" stroke-width="6"/><text x="610" y="1497" text-anchor="middle" font-family="Mali" font-weight="700" font-size="60" fill="#d9332b">?</text></g>`),
+  ].join('');
+  const BD_ON = { ground: [AT.journey, AT.end], journey: [AT.journey, AT.journey + 12.2], city: [AT.journey + 7.7, AT.journey + 12.9],
+                  gully: [AT.journey + 12.2, AT.grow], grow: [AT.grow, AT.wall], wall: [AT.wall, AT.end] };
+  function renderBackdrop(t) {
+    $('#backdrop').style.opacity = 1 - onStage(t);
+    for (const [k, [a, b]] of Object.entries(BD_ON)) $('#bd-' + k).style.opacity = clamp((t - a + 0.3) / 0.4) * (1 - clamp((t - b + 0.3) / 0.4));
+    const walked = clamp(t, ...WALK) - WALK[0];
+    $('#bd-mount').style.transform = `translateX(${-(walked * 40) % 540}px)`;
+    $('#bd-road').style.transform = `translateX(${-(walked * 250) % 90}px)`;
+    $('#bd-gate').style.transform = `translateX(${1150 - 250 * (t - AT.journey - 7.7)}px)`;      // scrolls past at road speed
+    $('#bd-water').style.transform = `translate(${60 * Math.sin(t * 1.3)}px, ${6 * Math.sin(t * 2)}px)`;
+    const sink = clamp((t - SLASH) / 0.6);                    // the dragon goes under once the gully is swept
+    $('#bd-dragon').style.transform = `translateY(${8 * Math.sin(t * 3) + 220 * sink}px)`;
+    $('#bd-dragon').style.opacity = 1 - sink;
+    const c = (t - PUNCH[0]) % 0.5, hit = t >= PUNCH[0] && t < PUNCH[1] && c >= 0.25 ? Math.exp(-(c - 0.25) * 8) : 0;   // fist lands mid-swing
+    $('#bd-dummy').style.transform = `rotate(${8 * hit}deg)`;
+    const heart = ease.back((t - AT.wall - 16.5) / 0.5), ask = ease.back((t - AT.wall - 18.7) / 0.5);
+    $('#bd-heart').style.opacity = clamp(heart) * (1 - clamp((t - AT.wall - 18.7) / 0.3));   // the heart gives way to the question mark
+    $('#bd-heart').style.transform = `translateY(${-10 * Math.sin(t * 3)}px) scale(${heart})`;
+    $('#bd-ask').style.opacity = clamp(ask); $('#bd-ask').style.transform = `scale(${ask})`;
+  }
+
+  let shownMood = null;
+  function render(t) {
+    FX.camera('#cam', t, DUR, { push: 0.03, shakes: [[0.6, 12], [AT.journey + 12.2, 8], [ZY_LAND + 0.5, 6], [SLASH, 14], [AT.wall + 4.2, 8]] });
+    Boil.update(t);
+    for (let i = 0; i < 2; i++) $('#cl' + i).style.transform = `translateX(${Math.sin(t * 0.4 + i) * 30}px)`;
+    FX.scenes(SCENES, t);
+    for (const [sel, out] of WHIP_OUT) if (t >= out + 0.5) $(sel).style.opacity = 0;    // 99% off-screen by then; at +0.55 the check still caught its text at x≈-985
+    for (const [sel, tin] of SCENES) if (t < tin) $(sel).style.visibility = 'hidden';   // fx.js leaves a not-yet-wiped scene visible as a zero-width clip: a hairline at x=0 shows on camera shakes
+    FX.items(ITEMS, t);
+
+    for (const [id, at] of SLIDES) {                        // cross-fade + slow push from the moment a picture appears
+      const sl = document.getElementById(id);
+      sl.style.opacity = clamp((t - at) / 0.45);
+      sl.firstElementChild.style.transform = `scale(${1.04 + 0.05 * clamp((t - Math.max(0, at)) / 6)})`;
+    }
+    for (const [sel, at] of WORDS) FX.words(sel, t, at, { each: 0.15 });
+
+    renderStage(t);
+
+    FX.strike('#grow-x-t', t, STRIKE, { color: '#d9332b' });
+
+    // end: the recap makes room for the question
+    const swap = clamp((t - ASK) / 0.3);
+    for (const id of ['#end-a', '#end-b']) if (t >= ASK) $(id).style.opacity = 1 - swap;
+
+    renderBackdrop(t);
+    renderChibi(t);
+
+    // Mochi: glide between layouts, expression per section, lip-sync, blink, wave at the end
+    let k = 0; while (k < POSE.length - 2 && t >= POSE[k + 1][0]) k++;
+    const [t0, x0, y0, s0] = POSE[k], [t1, x1, y1, s1] = POSE[k + 1], p = ease.inOut((t - t0) / Math.max(0.01, t1 - t0));
+    const size = s0 + (s1 - s0) * p, cx = x0 + (x1 - x0) * p, cy = y0 + (y1 - y0) * p + 6 * Math.sin(t * 2.4);
+    const mood = (MOOD.filter(([at]) => t >= at).pop() || MOOD[0])[1], waving = t >= WAVE_AT;
+    if (mood + waving !== shownMood) {
+      $('#mochi').innerHTML = `<g id="mo-body">${Mochi.svg(mood, 'talk', { outfit: 'wuxia', wave: waving, id: 'mo' })}</g>`;
+      shownMood = mood + waving;
+    }
+    const intro = ease.back((t - 0.3) / 0.7);
+    $('#mochi').style.transform = `translate(${cx - size / 2}px, ${cy - size / 2}px) scale(${size / 400 * intro})`;
+    $('#mochi').style.opacity = clamp((t - 0.3) / 0.2);
+    Mochi.talk('mo', t);
+    Mochi.blink('mo', t);
+    if (waving) $('#mo-wave').style.transform = `rotate(${-10 + 22 * Math.sin((t - WAVE_AT) * 8)}deg)`;
+  }
+  window.render = render;
+
+  // ?render → driven by render.mjs · ?t=5 → freeze at 5s · otherwise loop with a scrubber
+  const params = new URLSearchParams(location.search);
+  if (params.has('render')) { document.body.classList.add('render'); render(0); }
+  else {
+    const fit = () => {
+      const s = Math.min(innerWidth / 1080, (innerHeight - 40) / 1920);
+      $('#stage').style.transform = `translate(${(innerWidth - 1080 * s) / 2}px, 0) scale(${s})`;
+    };
+    fit(); addEventListener('resize', fit);
+    const bar = $('#scrub input'), label = $('#scrub span');
+    bar.max = DUR;
+    const show = (t) => { render(t); bar.value = t; label.textContent = t.toFixed(2) + 's'; };
+    let t0 = performance.now(), dragging = false;
+    bar.addEventListener('input', () => { dragging = true; show(+bar.value); });
+    bar.addEventListener('change', () => { dragging = false; t0 = performance.now() - bar.value * 1000; });
+    const loop = () => { if (!dragging) show(((performance.now() - t0) / 1000) % DUR); requestAnimationFrame(loop); };
+    if (params.has('t')) show(+params.get('t')); else loop();
+  }
+</script>
+</body>
+</html>
