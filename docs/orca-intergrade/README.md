@@ -4,6 +4,7 @@
 - สถานะ: **ยังไม่เริ่มลงมือ** — เอกสารนี้คือแผนสำหรับ session ถัดไป
 - อ้างอิงต้นแบบ: [stablyai/orca](https://github.com/stablyai/orca) (MIT License) — ลิงก์ไฟล์ทั้งหมดในเอกสารนี้ตรึงไว้ที่ commit [`ca1aac6`](https://github.com/stablyai/orca/tree/ca1aac6af4d83e219f2fa2bd44123e1c3b6eafeb) เพื่อไม่ให้ลิงก์เลื่อนตาม `main`
 - หลักการ: เอา **แนวคิด** ของ Orca มาใช้ ไม่ลอกโค้ดทั้งก้อน (โฟลเดอร์ daemon ของ Orca อย่างเดียวมี 259 ไฟล์)
+- แผนอื่นในโฟลเดอร์นี้: [markdown.md](markdown.md) — Markdown viewer สลับโหมด Source / Split / Preview
 
 ## 0. สิ่งที่ผู้ใช้ตัดสินใจแล้ว
 
