@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="th"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video Studio — Timeline Preview</title>
+<style>
+:root{color-scheme:dark;background:#0d1018;color:#e9edf8;font-family:system-ui,"Segoe UI",sans-serif}
+*{box-sizing:border-box}
+body{margin:0}
+header{height:68px;border-bottom:1px solid #2c3342;padding:14px 22px;display:flex;align-items:center;gap:16px;background:#121723}
+.logo{font-weight:800;font-size:19px;letter-spacing:-.02em}.logo span{color:#93a6ff}
+select,button,input{font:inherit;color:inherit}
+select,button{border:1px solid #384254;background:#20293a;padding:9px 13px;border-radius:9px;cursor:pointer}
+button:hover,select:hover{background:#303a50}
+button:disabled{opacity:.4;cursor:default}
+button.primary{background:#586bee;border-color:#586bee;font-weight:650}
+main{display:grid;grid-template-columns:minmax(280px,1fr) 340px;min-height:calc(100vh - 68px)}
+.stage{padding:18px;display:flex;align-items:center;flex-direction:column;gap:14px}
+.preview-card{background:#060a12;display:flex;align-items:center;justify-content:center;width:100%;height:min(66vh,730px);border:1px solid #2f394c;border-radius:12px;overflow:hidden}
+.viewport{width:1080px;height:1920px;flex:none;transform-origin:center center}
+iframe{width:1080px;height:1920px;border:0;background:#0a0a0a;pointer-events:none}
+.transport{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;width:100%}
+.timeline{width:100%;padding:16px;background:#161d2a;border:1px solid #30384a;border-radius:11px}
+input[type=range]{width:100%;accent-color:#8c9afb;cursor:pointer}
+.ruler{display:flex;justify-content:space-between;color:#93a0b8;font-size:12px}
+.track{height:34px;display:flex;position:relative;margin-top:12px;border-radius:7px;background:#242d3d;overflow:hidden;border:1px solid #374559}
+.clip{position:absolute;top:3px;bottom:3px;border-radius:5px;background:#7286d9;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;padding:6px 8px;cursor:pointer;border:1px solid #b0baff}
+aside{padding:22px;border-left:1px solid #2c3442;background:#121722;overflow:auto}
+h2{font-size:15px;color:#b7c4db;margin:12px 0}p{line-height:1.65;color:#aab6ca;font-size:13px}
+.stat{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid #2b3446;font-size:13px}.stat strong{font-variant-numeric:tabular-nums;color:#dbe4f8}
+.note{margin-top:16px;padding:12px;border-radius:9px;background:#1f2940;color:#bbc9e6;font-size:12px}
+#segments{display:grid;gap:8px;margin:12px 0}
+.scene-item{width:100%;text-align:left;border:1px solid #384254;background:#1b2230}
+footer{color:#8994a9;font-size:11px;padding:10px;text-align:center}
+.audio-controls{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;width:100%;font-size:12px;color:#b7c7df}
+.audio-controls input{width:110px}
+#audio-status{font-size:12px;color:#aab6ca}
+@media(max-width:900px){main{grid-template-columns:1fr}aside{border-left:0;border-top:1px solid #2c3442}.preview-card{height:58vh}header{flex-wrap:wrap;height:auto}.stage{padding:10px}}
+
+/* Project workbench: file explorer | live preview | inspector, plus integrated task console */
+:root{--surface:#111723;--panel:#151b29;--line:#303a4f;--accent:#8496ff;--muted:#a6b2c9}
+body{height:100vh;display:flex;flex-direction:column;min-height:620px;overflow:hidden}
+header{flex:0 0 58px;height:58px;padding:10px 18px;gap:12px}
+header select{min-width:210px;background:#222b3d;font-weight:650}
+#status{color:#acbad6;max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.workbench{flex:1;min-height:0;display:grid;grid-template-columns:minmax(225px,250px) minmax(365px,1fr) minmax(270px,330px);background:#0b101a}
+.sidebar,.inspector{min-height:0;overflow:hidden;background:var(--surface);display:flex;flex-direction:column}
+.sidebar{border-right:1px solid var(--line)}
+.inspector{border-left:1px solid var(--line);padding:0}
+.panel-head{height:44px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 13px;border-bottom:1px solid var(--line);font-size:11px;letter-spacing:.08em;font-weight:700;color:#b6c2db;white-space:nowrap}
+.panel-head span:last-child{font-size:10px;font-weight:450;color:#7e90b0;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.group-tabs{padding:10px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;border-bottom:1px solid var(--line)}
+.group-tabs button{padding:8px 2px;border:1px solid transparent;border-radius:6px;background:#1d2534;font-size:11px}
+.group-tabs button.active{background:#2b3a60;color:#d4ddff;border-color:#566aa5}
+.file-filter{margin:10px 10px 4px;background:#1d2533;border:1px solid #39465f;border-radius:7px;display:flex;align-items:center;padding:0 8px;gap:8px;color:#96a6c3}
+.file-filter input{min-width:0;width:100%;background:none;border:0;padding:8px 1px;color:#e5ecf8;outline:none;font-size:12px}
+.file-list{overflow-y:auto;flex:1;padding:7px 6px 20px;scrollbar-width:thin}
+.file-root{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#7e94bf;padding:14px 7px 5px}
+.file-entry{width:100%;display:flex;align-items:center;gap:7px;padding:7px 7px;cursor:pointer;border:0;border-radius:6px;background:transparent;color:#c6d3e8;text-align:left;font-size:12px;min-width:0}
+.file-entry:hover,.file-entry.active{background:#293551;color:#fff}
+.file-entry .file-symbol{flex:0 0 20px;text-align:center}
+.file-entry .file-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.file-entry small{color:#778eac;font-size:10px}
+.sidebar-foot{padding:9px 12px;color:#7588a5;border-top:1px solid var(--line);font-size:10px}
+.workspace-center{min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.workspace-head{flex:0 0 44px;display:flex;align-items:center;justify-content:space-between;padding:5px 14px;background:#151c2b;border-bottom:1px solid var(--line);font-size:11px;color:#b6c6e2}
+.workspace-head>div{display:flex;align-items:center;gap:12px}
+.workspace-head button{padding:6px 10px;font-size:11px}
+.pill{background:#222c43;color:#9db1df;padding:4px 7px;border-radius:5px;font-size:10px;letter-spacing:.01em}
+.stage{height:100%;min-height:0;overflow-y:auto;justify-content:flex-start;padding:12px;gap:10px}
+.preview-card{height:auto;flex:1;min-height:260px;max-height:calc(100% - 190px);border-radius:8px;box-shadow:inset 0 0 55px #0008}
+.transport{gap:5px}
+.transport button{font-size:12px;padding:8px 10px}
+.transport strong{font-size:11px;margin-left:8px;font-variant-numeric:tabular-nums}
+.audio-controls{gap:8px;font-size:11px}
+.audio-controls button{padding:4px 9px}
+.audio-controls input{width:75px}
+#audio-status{font-size:11px;max-width:295px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.timeline{padding:11px 13px}
+.timeline-label{display:flex;justify-content:space-between;font-size:10px;color:#889bbe;gap:8px;margin-bottom:9px}
+.timeline-label strong{color:#b3c0d9;letter-spacing:.06em}
+.timeline input[type=range]{margin:0}
+.track{margin-top:7px;height:28px}
+.clip{font-size:10px;padding:4px}
+.stage footer{font-size:10px}
+.inspector-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:8px 8px 0;border-bottom:1px solid var(--line)}
+.inspector-tabs button{padding:8px 2px;background:transparent;border:0;border-radius:5px 5px 0 0;font-size:11px}
+.inspector-tabs button.active{background:#2a3653;color:#dce5ff;border-bottom:2px solid #8ea3ff}
+.inspector-pane{display:none;padding:13px;overflow-y:auto;min-height:0;flex:1;scrollbar-width:thin}
+.inspector-pane.active{display:block}
+.inspector-pane h2{font-size:12px;margin:10px 0}
+.inspector-pane p{font-size:12px}
+.inspector-pane #save{margin-top:11px}
+.file-heading{font-size:13px;word-break:break-all;color:#dce6fb;font-weight:750}
+.file-meta{font-size:11px;color:#91a5c9;margin:8px 0 16px;word-break:break-word}
+#file-preview pre{white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2;background:#0b101b;border:1px solid #303b50;border-radius:7px;padding:10px;font-size:11px;line-height:1.55;color:#cad7ee;max-height:65vh;overflow:auto}
+#file-preview img{display:block;width:100%;height:auto;max-height:60vh;object-fit:contain;background:#080b12;border-radius:7px}
+#file-preview audio,#file-preview video{width:100%;margin-top:10px}
+#file-preview video{max-height:54vh}
+.file-open{display:inline-block;margin-top:10px;padding:7px 11px;color:#c8d6ff;border:1px solid #5666a0;border-radius:6px;font-size:12px}
+.task-console{background:#0b101a;border-top:1px solid #405073;flex:0 0 222px;min-height:0;display:flex;flex-direction:column}
+.task-console.expanded{flex-basis:52vh}
+.task-console.collapsed{flex-basis:84px}
+.task-console.collapsed .console-body{display:none}
+.console-bar{height:40px;flex:0 0 40px;padding:5px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #2c3750;gap:10px}
+.console-title{display:flex;align-items:center;gap:9px;color:#b8cae6;font-size:11px;letter-spacing:.04em}
+.console-dot{width:7px;height:7px;border-radius:50%;background:#71d8af}
+.console-quick{display:flex;gap:5px;overflow-x:auto}
+.console-quick button{padding:5px 9px;white-space:nowrap;font-size:11px;border:1px solid #344259;background:#1c283d}
+.console-quick button:hover{background:#344263}
+#cancel-task{color:#ffb7b7}
+.console-body{flex:1;overflow-y:auto;min-height:0}
+#console-output{padding:10px 14px;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;color:#c0d6c8;font:11px/1.55 Consolas,'Cascadia Code',monospace}
+.console-input{height:42px;flex:0 0 42px;display:flex;gap:10px;align-items:center;padding:5px 10px;border-top:1px solid #2d3b4e}
+.console-input span{color:#93d5b9;font:12px Consolas,monospace}
+.console-input input{background:transparent;min-width:0;flex:1;border:0;outline:none;font:12px Consolas,monospace;color:#f1f6ff}
+.console-input button{padding:6px 12px;font-size:11px}
+@media(max-width:1050px){.workbench{grid-template-columns:200px minmax(310px,1fr) 260px}.console-quick button{padding:4px}}
+@media(max-width:780px){body{overflow:auto;height:auto}.workbench{display:flex;flex-direction:column;min-height:700px}.sidebar{max-height:250px}.workspace-center{height:650px}.inspector{min-height:300px;max-height:450px}.task-console{min-height:220px}.panel-head{flex:0 0 44px}.preview-card{max-height:400px}.group-tabs{grid-template-columns:repeat(7,1fr)}.file-list{max-height:140px}.console-quick{max-width:65vw}}
+
+.file-actions{padding:8px 10px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:5px;align-items:center;font-size:11px}
+.file-actions label{font-size:10px;color:#91a5ca}
+.file-actions select{grid-column:1/-1;width:100%;padding:6px;font-size:11px}
+.file-actions button{grid-column:1/-1;background:#2d3e67;border-color:#5f73ae;font-size:11px;padding:7px}
+#asset-message{grid-column:1/-1;white-space:normal;font-size:10px;color:#aabada}
+.rename-file{font-size:11px;margin-top:8px;background:#303b56;border-color:#60729d}
+.inspector-top{display:flex;align-items:center;gap:5px;min-width:0}
+.inspector-top button{font-size:10px;padding:5px 7px;flex:none}
+.workbench.inspector-expanded{grid-template-columns:minmax(200px,250px) minmax(0,1fr)}
+.workbench.inspector-expanded .workspace-center{display:none}
+.workbench.inspector-expanded .inspector{grid-column:2;min-width:0}
+.workbench.inspector-expanded #file-preview pre{max-height:calc(100vh - 360px)}
+.workbench.inspector-expanded #file-preview img{height:auto;max-height:calc(100vh - 350px);object-fit:contain}
+.workbench.inspector-expanded #file-preview video{max-height:calc(100vh - 350px)}
+.workbench.preview-expanded{grid-template-columns:1fr}
+.workbench.preview-expanded .sidebar,.workbench.preview-expanded .inspector{display:none}
+.workbench.preview-expanded .workspace-center{grid-column:1}
+.workbench.preview-expanded .preview-card{max-height:calc(100% - 175px)}
+
+.terminal-tab{font-size:11px;padding:5px 9px;border-radius:5px;background:#202a3b}
+.terminal-tab.selected{border-color:#6579b8;background:#314268}
+#powershell-pane{flex:1;min-height:0;display:flex;flex-direction:column}
+#powershell-pane[hidden]{display:none}
+#terminal-login{padding:12px;color:#b6c7e6;font-size:12px}
+#terminal-login p{margin:4px 0 10px}
+#terminal-auth-form{display:flex;gap:10px}
+#terminal-access-code{width:310px;max-width:70vw;background:#171f30;border:1px solid #526080;border-radius:6px;color:#fff;padding:8px}
+#terminal-message{padding:0 12px;font-size:11px;color:#c7d2e8;min-height:0;margin:2px 0}
+#pty-screen{height:100%;min-height:80px;padding:6px 10px;overflow:hidden}
+.terminal-hint{font-size:10px;color:#8293af;padding:5px 12px}
+.task-console.terminal-mode .console-body,.task-console.terminal-mode #console-form,.task-console.terminal-mode .console-quick [data-task],.task-console.terminal-mode #cancel-task{display:none}
+.task-console.terminal-mode{flex-basis:48vh}
+.task-console.terminal-mode #powershell-pane{display:flex}
+.task-console.terminal-mode.collapsed{flex-basis:84px}
+.task-console.terminal-mode.collapsed #powershell-pane{display:none}
+
+.inspector-actions{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.inspector-actions button,.restore-file{font-size:11px;padding:7px 9px;border-radius:6px}
+.file-action-delete{color:#ffc0c0;background:#4a2934;border-color:#8c4655}
+.restore-file{background:#245047;border-color:#438c7b}
+.group-tabs{grid-template-columns:repeat(4,minmax(0,1fr))}
+</style>
+<link rel="stylesheet" href="/vendor/xterm.css"></head><body>
+<header>
+<div class="logo">Video <span>Studio</span></div>
+<label for="project" style="font-size:12px;color:#99a7c0">PROJECT</label>
+<select id="project" aria-label="Choose project"></select>
+
+<div style="flex:1"></div><small id="status">Ready</small>
+</header>
+<main class="workbench">
+<aside class="sidebar">
+  <div class="panel-head"><span>PROJECT EXPLORER</span><span id="file-count"></span></div>
+  <nav class="group-tabs" id="file-tabs" aria-label="Project file categories">
+    <button data-group="source" title="Source files">Source</button>
+    <button data-group="assets" title="Project visuals, images and sounds">Assets</button>
+    <button data-group="brand" title="Brand guidelines and media">Brand</button>
+    <button data-group="documents" title="Project documentation and global docs">Docs</button>
+    <button data-group="fx" title="FX engine and style packs">FX</button>
+    <button data-group="models" title="Model metadata">Models</button>
+    <button data-group="output" title="Rendered videos and stills">Output</button>
+    <button data-group="trash" title="Recover deleted project media or documents">Trash</button>
+  </nav>
+  <label class="file-filter"><span>⌕</span><input id="file-search" type="search" placeholder="Filter project files…" aria-label="Filter project files"></label>
+  <div class="file-actions">
+    <label for="asset-dest">Upload to</label>
+    <select id="asset-dest" aria-label="Media upload destination">
+      <option value="assets">Source images (source/img)</option>
+      <option value="brand">Brand media (brand)</option>
+      <option value="brand-sfx">Brand sound effects (brand/sfx)</option>
+      <option value="documents">Project documents (docs)</option>
+      <option value="brand-docs">Brand notes (brand)</option>
+    </select>
+    <button id="upload-asset">＋ Add files</button>
+    <input id="asset-picker" type="file" accept=".png,.jpg,.jpeg,.webp,.gif,.wav,.mp3,.m4a,.ogg,.mp4,.webm,.md,.txt,.csv,.srt,.vtt,.json,.pdf,.docx,.xlsx,.pptx" multiple hidden>
+    <span id="asset-message" role="status"></span>
+  </div>
+  <div id="file-list" class="file-list" role="list" aria-label="Project files"></div>
+  <div class="sidebar-foot">Upload / Rename / Duplicate / Trash / Restore · Global docs, source code and models protected</div>
+</aside>
+<section class="workspace-center">
+  <div class="workspace-head">
+    <div><strong>LIVE PREVIEW</strong><span class="pill">HTML / 30 FPS / 1080 × 1920</span></div>
+    <div><span id="protocol">Loading</span><button id="preview-full" title="Expand preview to full workspace">⛶ Expand</button><button id="reload" title="Reload composition and file metadata">↻ Reload</button></div>
+  </div>
+  <section class="stage">
+    <div class="preview-card" id="preview-card"><div class="viewport" id="viewport"><iframe id="preview" title="Live HTML video preview"></iframe></div></div>
+    <div class="transport">
+      <button id="start" title="First frame">⏮</button>
+      <button id="back" title="Previous frame">◀ Frame</button>
+      <button class="primary" id="play">▶ Play</button>
+      <button id="next" title="Next frame">Frame ▶</button>
+      <button id="end" title="Last frame">⏭</button>
+      <strong id="clock">00:00.000 / 00:00.000</strong>
+    </div>
+    <video id="soundtrack" preload="metadata" playsinline hidden aria-hidden="true"></video>
+    <div class="audio-controls">
+      <button id="mute" aria-label="Mute soundtrack" title="Mute / unmute soundtrack">🔊</button>
+      <label for="volume">Volume</label><input id="volume" aria-label="Soundtrack volume" type="range" min="0" max="1" step="0.05" value="1">
+      <span id="audio-status" role="status" aria-live="polite">Checking soundtrack…</span>
+    </div>
+    <div class="timeline">
+      <div class="timeline-label"><strong>TIMELINE</strong><span>Click scenes to jump · drag playhead to seek</span></div>
+      <input type="range" id="seek" aria-label="Scrub timeline" min="0" max="15" step="0.033333" value="0">
+      <div class="ruler"><span>0:00</span><span id="midtime">0:07</span><span id="endtime">0:15</span></div>
+      <div class="track" id="track" title="Detected visible scene windows"></div>
+    </div>
+    <footer>Visual = latest source <code>render(t)</code> · Audio = last rendered MP4 · Use Render in the console after making changes</footer>
+  </section>
+</section>
+<aside class="inspector">
+  <div class="panel-head"><span>INSPECTOR</span><div class="inspector-top"><span id="inspector-breadcrumb">No file selected</span><button id="inspector-full" title="Expand selected file into main workspace">⛶ Expand</button><button id="inspector-back" title="Return to normal live preview" hidden>↩ Preview</button></div></div>
+  <nav class="inspector-tabs" aria-label="Inspector views">
+    <button data-panel="file" class="active">File</button>
+    <button data-panel="scenes">Scenes</button>
+    <button data-panel="composition">Composition</button>
+    <button data-panel="info">Project</button>
+  </nav>
+  <section class="inspector-pane active" id="pane-file">
+    <div id="file-preview"><p>Choose a file from the Explorer to view text, images, audio, video or model metadata.</p></div>
+  </section>
+  <section class="inspector-pane" id="pane-scenes">
+    <h2>SCENES · click to seek</h2><div id="segments"></div>
+    <p>Scene boundaries are sampled from the live DOM; scenes in legacy HTML are view-only.</p>
+  </section>
+  <section class="inspector-pane" id="pane-composition">
+    <h2>COMPOSITION</h2>
+    <p id="edit-note">Existing hard-coded HTML projects are preview-only. JSON compositions can edit clip timing and text here.</p>
+    <div id="clip-editor"></div>
+    <button id="save" disabled>Save Composition</button>
+  </section>
+  <section class="inspector-pane" id="pane-info">
+    <h2>PROJECT DETAILS</h2>
+    <div class="stat"><span>Project</span><strong id="project-info">—</strong></div>
+    <div class="stat"><span>Canvas</span><strong>1080 × 1920</strong></div>
+    <div class="stat"><span>Frame Rate</span><strong>30 FPS</strong></div>
+    <div class="stat"><span>Duration</span><strong id="duration">—</strong></div>
+    <div class="stat"><span>Published MP4</span><strong id="video-ready">—</strong></div>
+    <h2>OUTPUT</h2><div id="video-link"><p>No rendered MP4 found.</p></div>
+    <h2>REUSABLE COMPONENTS</h2><div id="components"></div>
+    <p>Component definitions and FX are available in the Explorer. Legacy HTML scenes still require code changes.</p>
+  </section>
+</aside>
+</main>
+<section class="task-console" aria-label="Built-in project terminal">
+  <div class="console-bar">
+    <div class="console-title"><span class="console-dot"></span><strong>PROJECT TERMINAL</strong><button id="mode-tasks" class="terminal-tab selected">Tasks</button><button id="mode-powershell" class="terminal-tab">PowerShell / Claude / Codex</button><span class="pill" id="console-state">IDLE</span></div>
+    <div class="console-quick">
+      <button data-task="check" title="Check scene layout">Check</button>
+      <button data-task="stills" title="Export still frames">Stills</button>
+      <button data-task="render 1 2" title="Fast draft MP4">Draft</button>
+      <button data-task="render 8 2" title="Full motion blur render">Render</button>
+      <button data-task="test" title="Automated test suite">Tests</button>
+      <button data-task="probe" title="Inspect rendered MP4">Probe</button>
+      <button id="cancel-task" title="Stop the running command" disabled>Stop</button>
+      <button id="toggle-console" title="Expand or collapse console">Expand ▴</button>
+    </div>
+  </div>
+  <div class="console-body">
+    <pre id="console-output" aria-live="polite" aria-label="Terminal output">Video Studio Project Console
+Select a project, then type help or click Check / Draft / Render.
+Commands run locally and show their output here.</pre>
+  </div>
+  <div id="powershell-pane" hidden>
+    <div id="terminal-login" hidden>
+      <p><strong>Full PowerShell requires explicit local access.</strong> Start Studio with <code>npm run studio:terminal</code> and enter the access code printed in that terminal.</p>
+      <form id="terminal-auth-form"><input id="terminal-access-code" type="password" autocomplete="off" placeholder="Terminal access code" aria-label="PowerShell access code"><button type="submit">Unlock Terminal</button></form>
+    </div>
+    <p id="terminal-message" role="status"></p>
+    <div id="pty-screen" tabindex="0" aria-label="Interactive PowerShell terminal"></div>
+    <div class="terminal-hint">Real Windows PowerShell in the selected project folder · Supports Claude Code and Codex when installed · Full user privileges</div>
+  </div>
+  <form id="console-form" class="console-input"><span id="console-prompt">studio&gt;</span><input id="console-command" type="text" spellcheck="false" autocomplete="off" placeholder="help | check | render 1 2 | test | status" aria-label="Console command"><button type="submit" class="primary">Run ↵</button></form>
+</section>
+<script>
+const $ = id => document.getElementById(id);
+const state = { project:'', duration:15, time:0, playing:false, raf:0, lastTick:0, scenes:[], busy:false, composition:null, etag:null,
+  audioAvailable:false, audioReady:false, loadId:0 };
+const fmt = t => { let m = Math.floor(t/60),s=(t-m*60).toFixed(3).padStart(6,'0');return String(m).padStart(2,'0')+':'+s; };
+function audioSource(project) {
+  const encoded=encodeURIComponent(project);
+  return '/projects/'+encoded+'/output/'+encoded+'.mp4';
+}
+function audioStatus(message) {$('audio-status').textContent=message;}
+function configureSoundtrack(project, hasVideo) {
+  const media=$('soundtrack');
+  media.pause();
+  media.removeAttribute('src');
+  media.load();
+  state.audioAvailable=Boolean(hasVideo);
+  state.audioReady=false;
+  media.muted=$('mute').getAttribute('aria-pressed')==='true';
+  media.volume=Number($('volume').value);
+  if (!hasVideo) {
+    audioStatus('No rendered MP4 — silent preview; render a video to enable sound.');
+    $('mute').disabled=true;
+    $('volume').disabled=true;
+    return;
+  }
+  $('mute').disabled=false;
+  $('volume').disabled=false;
+  const projectId=state.loadId;
+  media.onloadedmetadata=()=>{
+    if(projectId!==state.loadId)return;
+    state.audioReady=true;
+    alignSoundtrack(state.time);
+    audioStatus('Soundtrack: rendered MP4 (synced)');
+  };
+  media.onwaiting=()=>{
+    if(projectId===state.loadId && state.playing)audioStatus('Buffering soundtrack…');
+  };
+  media.onplaying=()=>{
+    if(projectId===state.loadId)audioStatus('Soundtrack: rendered MP4 (playing)');
+  };
+  media.onerror=()=>{
+    if(projectId!==state.loadId)return;
+    state.audioAvailable=false;
+    state.audioReady=false;
+    audioStatus('Unable to load MP4 soundtrack — preview will play silently.');
+    if(state.playing) state.lastTick=performance.now();
+  };
+  media.onended=()=>{
+    if(projectId!==state.loadId)return;
+    if(state.playing){pause();update(state.duration,{syncSound:false});}
+  };
+  audioStatus('Loading soundtrack from rendered MP4…');
+  media.src=audioSource(project);
+  media.load();
+}
+function alignSoundtrack(time) {
+  if(!state.audioAvailable)return;
+  const media=$('soundtrack');
+  const safeEnd=Number.isFinite(media.duration)?Math.max(0,media.duration-0.02):state.duration;
+  const target=Math.max(0,Math.min(time,safeEnd));
+  if(Math.abs(media.currentTime-target)>0.055) {
+    try{media.currentTime=target;}catch(error){console.warn('Audio seek:',error);}
+  }
+}
+function pause(){
+  state.playing=false;cancelAnimationFrame(state.raf);
+  $('soundtrack').pause();
+  $('play').textContent='▶ Play';
+}
+function update(t,{syncSound=true}={}) {
+  const adapter=$('preview').contentWindow?.VideoStudioHF;
+  if(!adapter)return;
+  state.time=Math.max(0,Math.min(state.duration,t));
+  adapter.seek(state.time);
+  $('seek').value=String(state.time);
+  $('clock').textContent=fmt(state.time)+' / '+fmt(state.duration);
+  if(syncSound)alignSoundtrack(state.time);
+}
+function tick(timestamp){
+  if(!state.playing)return;
+  const media=$('soundtrack');
+  if(state.audioAvailable) {
+    // Audio is the master clock. The HTML render follows currentTime instead
+    // of accumulating requestAnimationFrame delays (which drift when busy).
+    if(media.ended){pause();update(state.duration,{syncSound:false});return;}
+    if(!media.paused && media.readyState>=2) {
+      const time=Math.min(state.duration,media.currentTime);
+      update(time,{syncSound:false});
+      if(time>=state.duration-0.02){pause();update(state.duration,{syncSound:false});return;}
+    }
+    // Hold the visual frame while audio is buffering.
+  }else{
+    const elapsed=Math.min(.05,Math.max(0,(timestamp-state.lastTick)/1000));
+    const next=state.time+elapsed;
+    if(next>=state.duration){update(state.duration);pause();return;}
+    update(next);
+  }
+  state.lastTick=timestamp;
+  state.raf=requestAnimationFrame(tick);
+}
+function startPlayback(){
+  if(!$('preview').contentWindow?.VideoStudioHF)return;
+  if(state.playing){pause();return;}
+  if(state.time>=state.duration-1/30)update(0);
+  const media=$('soundtrack');
+  if(state.audioAvailable){
+    alignSoundtrack(state.time);
+    // Must call play() directly from the button click for browser autoplay policy.
+    const promise=media.play();
+    Promise.resolve(promise).catch(error=>{
+      if(!state.playing)return;
+      pause();
+      audioStatus('Sound blocked: '+error.message+'. Click Play again or check browser sound settings.');
+    });
+  }
+  state.playing=true;
+  $('play').textContent='❚❚ Pause';
+  state.lastTick=performance.now();
+  state.raf=requestAnimationFrame(tick);
+}
+function scanScenes() {
+  const hf=$('preview').contentWindow.VideoStudioHF;
+  const originalTime=state.time;
+  const sampling=Math.max(.2,state.duration/240);
+  const raw=[];
+  for(let t=0;t<=state.duration;t+=sampling){
+    hf.seek(Math.min(t,state.duration));
+    const seen=hf.sceneSnapshot();
+    for(const scene of seen){
+      const last=raw[raw.length-1];
+      if(last&&last.id===scene.id&&Math.abs(last.end-t)<sampling*1.1){last.end=t+sampling;}
+      else raw.push({id:scene.id,label:scene.label,start:t,end:Math.min(state.duration,t+sampling)});
+    }
+  }
+  hf.seek(originalTime);
+  // Merge blocks per ID across adjacent sampled time slices.
+  const groups=new Map();
+  for(const row of raw){
+    const prev=groups.get(row.id);
+    if(prev&&row.start<=prev.end+sampling) prev.end=Math.max(prev.end,row.end);
+    else groups.set(row.id,{...row});
+  }
+  state.scenes=Array.from(groups.values()).sort((a,b)=>a.start-b.start);
+  $('track').replaceChildren();$('segments').replaceChildren();
+  for(const scene of state.scenes){
+    const btn=document.createElement('button');btn.className='scene-item';
+    btn.textContent=scene.label+'  ·  '+fmt(scene.start);
+    btn.onclick=()=>update(scene.start);
+    $('segments').append(btn);
+    const clip=document.createElement('div');clip.className='clip';
+    clip.textContent=scene.label;clip.title=scene.label+' '+fmt(scene.start);
+    clip.style.left=(scene.start/state.duration*100)+'%';
+    clip.style.width=(Math.max(.3,(scene.end-scene.start)/state.duration*100))+'%';
+    clip.onclick=()=>update(scene.start);$('track').append(clip);
+  }
+}
+
+async function loadCompositionEditor(project){
+  state.composition=null;state.etag=null;$('clip-editor').replaceChildren();$('save').disabled=true;
+  const response=await fetch('/api/compositions/'+encodeURIComponent(project));
+  if(response.status===404){$('edit-note').textContent='Legacy HTML project: view and scrub only. The editor does not rewrite handwritten render(t) code.';return;}
+  if(!response.ok){$('edit-note').textContent='Cannot load editor: HTTP '+response.status;return;}
+  state.composition=await response.json();
+  state.etag=response.headers.get('etag');
+  $('edit-note').textContent='Editable JSON timeline. Start/duration align to 30fps (0.033333s); text changes affect this composition only.';
+  $('save').disabled=false;
+  const clips=state.composition.clips;
+  for(const clip of clips){
+    const holder=document.createElement('div');
+    holder.style.cssText='border:1px solid #344056;padding:10px;border-radius:9px;margin:8px 0';
+    const heading=document.createElement('strong');heading.textContent=clip.id+' — '+clip.component;holder.append(heading);
+    for(const key of ['start','duration']){
+      const label=document.createElement('label');label.textContent=' '+key+' ';
+      label.style.cssText='display:flex;justify-content:space-between;align-items:center;margin:9px 0;font-size:12px';
+      const input=document.createElement('input');input.type='number';input.step=String(1/30);input.min=key==='start'?'0':'0.0333333';
+      input.value=String(clip[key]);input.style.cssText='max-width:125px;padding:5px;background:#0d1422;border:1px solid #43516a;border-radius:5px';
+      input.onchange=()=>{const frames=Math.round(Number(input.value)*30);clip[key]=frames/30;input.value=String(clip[key]);};
+      label.append(input);holder.append(label);
+    }
+    for(const [key,value] of Object.entries(clip.props||{})){
+      if(typeof value!=='string')continue;
+      const label=document.createElement('label');label.textContent=key;
+      label.style.cssText='display:block;margin:8px 0;font-size:12px;color:#9faecb';
+      const input=document.createElement('input');input.value=value;
+      input.style.cssText='width:100%;margin-top:4px;background:#0d1422;border:1px solid #43516a;border-radius:5px;padding:7px';
+      input.oninput=()=>{clip.props[key]=input.value;};
+      label.append(input);holder.append(label);
+    }
+    $('clip-editor').append(holder);
+  }
+}
+async function saveComposition(){
+  const project=state.project;
+  if(!state.composition||!state.etag)return;
+  $('save').disabled=true;
+  try{
+    const res=await fetch('/api/compositions/'+encodeURIComponent(project),{method:'PUT',headers:{
+      'Content-Type':'application/json','If-Match':state.etag},
+      body:JSON.stringify(state.composition)});
+    if(!res.ok){const error=await res.json();throw new Error(error.error||'Save failed: '+res.status);}
+    $('status').textContent='Timeline saved';await load(project);
+  }catch(error){$('status').textContent='Save failed: '+error.message;$('save').disabled=false;}
+}
+async function load(project) {
+  pause();
+  state.project=project;state.time=0;state.scenes=[];
+  $('project-info').textContent=project;
+  $('video-ready').textContent=window.allProjects.find(p=>p.name===project)?.hasVideo?'Ready':'Not rendered';
+  $('console-prompt').textContent=project+' >';
+  $('inspector-breadcrumb').textContent='';
+  loadWorkspaceGroup(workspace.group);
+  const currentLoad=++state.loadId;
+  const available=window.allProjects.find(x=>x.name===project)?.hasVideo;
+  configureSoundtrack(project,available);
+  $('status').textContent='Loading '+project+'…';
+  $('protocol').textContent='Loading';
+  const frame=$('preview');
+  frame.onload=async()=>{
+    if(currentLoad!==state.loadId)return;
+    try {
+      const w=frame.contentWindow;
+      if(!w)throw new Error('iframe unavailable');
+      const deadline=Date.now()+15000;
+      while(typeof w.render!=='function' && Date.now()<deadline && !w.__compositionError)
+        await new Promise(resolve=>setTimeout(resolve,25));
+      if(typeof w.render!=='function')throw new Error(w.__compositionError || 'window.render(t) unavailable');
+      await new Promise((resolve,reject)=>{
+        const script=w.document.createElement('script');script.src='/lib/hf-adapter.js';
+        script.onload=resolve;script.onerror=()=>reject(new Error('Cannot load seek adapter'));
+        w.document.head.append(script);
+      });
+      w.VideoStudioHF.install({duration:Number(w.DUR||15),fps:30});
+      state.duration=w.VideoStudioHF.state.duration;
+      $('duration').textContent=state.duration.toFixed(2)+'s';
+      $('protocol').textContent='__hf ✓';
+      $('seek').max=state.duration;
+      $('midtime').textContent=fmt(state.duration/2);
+      $('endtime').textContent=fmt(state.duration);
+      update(0);
+      scanScenes();
+      await loadCompositionEditor(project);
+      if(currentLoad!==state.loadId)return;
+      $('status').textContent=project+' ready';
+      $('video-link').innerHTML=available?'<a href="/projects/'+encodeURIComponent(project)+'/output/'+encodeURIComponent(project)+'.mp4" target="_blank" style="color:#93a6ff">Open rendered MP4 ↗</a>':'<p>No rendered MP4 yet.</p>';
+    }catch(error){$('status').textContent='ERROR: '+error.message;$('protocol').textContent='Error';console.error(error);}
+  };
+  frame.src='/projects/'+encodeURIComponent(project)+'/source/index.html?render';
+}
+function resize(){
+  const bounds=$('preview-card').getBoundingClientRect();
+  const scale=Math.min((bounds.width-12)/1080,(bounds.height-12)/1920);
+  $('viewport').style.transform='scale('+scale+')';
+}
+
+// Workbench explorer — project-scoped read-only tree with content previews.
+const workspace = { group:'brand', entries:[], selected:null, request:0, inspector:'file',
+  runningTask:null, interval:null, consoleExpanded:false, savedLog:null };
+const fileIcons = {image:'▧',audio:'♫',video:'▶',text:'≡',document:'▤',binary:'⬢'};
+function workspaceUrl(endpoint,item,project=state.project,group=workspace.group) {
+  return '/api/studio/'+endpoint+'?'+new URLSearchParams({
+    project,group,path:item.path,
+  }).toString();
+}
+function sizeLabel(size) {
+  if(size<1024)return size+' B';
+  if(size<1024*1024)return (size/1024).toFixed(1)+' KB';
+  return (size/1024/1024).toFixed(1)+' MB';
+}
+function switchInspector(panel) {
+  workspace.inspector=panel;
+  for(const tab of document.querySelectorAll('[data-panel]'))tab.classList.toggle('active',tab.dataset.panel===panel);
+  for(const pane of document.querySelectorAll('.inspector-pane'))pane.classList.toggle('active',pane.id==='pane-'+panel);
+}
+function previewNode(tag,cssText) {
+  const el=document.createElement(tag);
+  if(cssText)el.style.cssText=cssText;
+  return el;
+}
+
+function manageLocation(item){
+  if(!item || item.metadataOnly) return null;
+  const folder=item.folder||'';
+  const media=['image','audio','video'].includes(item.type);
+  const docs=item.type==='document'||item.type==='text';
+  if(media){
+    if((item.root==='Brand Kit'||item.root==='Brand media') && folder==='sfx')return {location:'brand-sfx',folder:''};
+    if((item.root==='Brand Kit'||item.root==='Brand media') && folder.startsWith('sfx/'))return {location:'brand-sfx',folder:folder.slice(4)};
+    if(item.root==='Brand Kit'||item.root==='Brand media')return {location:'brand',folder};
+    if((item.root==='Source'||item.root==='Source assets')&&(folder==='img'||folder.startsWith('img/')))
+      return {location:'assets',folder:folder==='img'?'':folder.slice(4)};
+    return null;
+  }
+  if(docs){
+    if(item.name.toLowerCase()==='brand.md')return null;
+    if(item.root==='Project Docs')return {location:'documents',folder};
+    if(item.root==='Brand notes'||item.root==='Brand Kit')return {location:'brand-docs',folder};
+  }
+  return null;
+}
+function assetLocation(item){return manageLocation(item)?.location||null;}
+function assetSubfolder(item){return manageLocation(item)?.folder||'';}
+function chooseUploadLocation(){
+  if(workspace.group==='brand')$('asset-dest').value='brand';
+  else if(workspace.group==='assets')$('asset-dest').value='assets';
+  else if(workspace.group==='documents')$('asset-dest').value='documents';
+  $('upload-asset').disabled=workspace.group==='trash';
+}
+async function uploadMedia(files){
+  if(!files?.length)return;
+  const dest=$('asset-dest').value,project=state.project;
+  $('asset-message').textContent='Uploading '+files.length+' file(s)…';
+  let ok=0,failed=[];
+  for(const file of files){
+    try{
+      const endpoint='/api/studio/files/upload?'+new URLSearchParams({
+        project,location:dest,name:file.name
+      });
+      const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file});
+      const body=await response.json();
+      if(!response.ok)throw new Error(body.error||'HTTP '+response.status);
+      ok++;
+    }catch(e){failed.push(file.name+': '+e.message);}
+  }
+  $('asset-message').textContent=ok+' uploaded'+(failed.length?' · '+failed.join(' | '):'');
+  if(!failed.length && state.project===project){
+    if(dest==='assets')await loadWorkspaceGroup('assets');
+    else if(dest==='documents'||dest==='brand-docs')await loadWorkspaceGroup('documents');
+    else await loadWorkspaceGroup('brand');
+  }else await loadWorkspaceGroup(workspace.group,false);
+}
+async function fileAction(item,action){
+  const info=manageLocation(item);
+  if(!info)return;
+  let newName=null;
+  if(action==='rename'){
+    newName=window.prompt('Rename file (keep extension):',item.name);
+    if(!newName||newName===item.name)return;
+  }
+  if(action==='delete'&&!window.confirm('Move "'+item.name+'" to the project Trash? You can restore it later.'))return;
+  const project=state.project,group=workspace.group;
+  try{
+    const res=await fetch('/api/studio/files/action',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        project,...info,name:item.name,action,...(newName?{newName}:{})
+      })});
+    const body=await res.json();
+    if(!res.ok)throw Error(body.error||'File action failed');
+    $('asset-message').textContent=action+' '+item.name+' → '+(body.name||'Trash');
+    await loadWorkspaceGroup(group);
+  }catch(e){$('asset-message').textContent=action+' error: '+e.message;}
+}
+async function renameMedia(item){return fileAction(item,'rename');}
+async function loadTrash(){
+  const res=await fetch('/api/studio/files/trash?'+new URLSearchParams({project:state.project}));
+  const data=await res.json();
+  if(!res.ok)throw Error(data.error||'Cannot list Trash');
+  workspace.trashItems=data.items;
+  workspace.entries=[];
+  drawFileList();
+}
+async function restoreTrash(item){
+  try{
+    const res=await fetch('/api/studio/files/restore',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        project:state.project,id:item.id
+      })});
+    const body=await res.json();
+    if(!res.ok)throw Error(body.error||'Restore failed');
+    $('asset-message').textContent='Restored '+item.name;
+    await loadTrash();
+  }catch(e){$('asset-message').textContent='Restore failed: '+e.message;}
+}
+function setWorkspaceView(mode){
+  const wb=document.querySelector('.workbench');
+  wb.classList.toggle('inspector-expanded',mode==='inspector');
+  wb.classList.toggle('preview-expanded',mode==='preview');
+  $('inspector-back').hidden=mode!=='inspector';
+  $('inspector-full').textContent=mode==='inspector'?'↩ Restore':'⛶ Expand';
+  $('preview-full').textContent=mode==='preview'?'↩ Restore':'⛶ Expand';
+  requestAnimationFrame(resize);
+}
+
+async function openWorkspaceFile(item) {
+  const project=state.project,group=workspace.group;
+  workspace.selected=item.path;
+  drawFileList();
+  switchInspector('file');
+  $('inspector-breadcrumb').textContent=item.name;
+  const container=$('file-preview');
+  container.replaceChildren();
+  const title=previewNode('div');title.className='file-heading';title.textContent=item.name;container.append(title);
+  const meta=previewNode('div');meta.className='file-meta';
+  meta.textContent=item.root+' / '+(item.folder?item.folder+'/':'')+item.name+' · '+sizeLabel(item.size);
+  container.append(meta);
+  if(manageLocation(item)){
+    const actions=previewNode('div');
+    actions.className='inspector-actions';
+    for(const [action,label] of [['rename','✎ Rename'],['duplicate','⧉ Duplicate'],['delete','▣ Move to Trash']]){
+      const button=previewNode('button');button.className='file-action-'+action+(action==='rename'?' rename-file':'');
+      button.textContent=label;
+      button.onclick=()=>fileAction(item,action);
+      actions.append(button);
+    }
+    container.append(actions);
+  }
+  if(item.metadataOnly) {
+    const p=previewNode('p');p.textContent='Model file (metadata only). Size: '+sizeLabel(item.size)+'. Use the project workflow or compatible inference tool to operate on the model.';
+    container.append(p);return;
+  }
+  if(!item.previewable){
+    const p=previewNode('p');
+    p.textContent='Preview unavailable for this file type or size. It is still available in the local project folder.';
+    container.append(p);return;
+  }
+  try {
+    if(item.type==='text'){
+      const response=await fetch(workspaceUrl('text',item,project,group));
+      const body=await response.json();
+      if(!response.ok)throw new Error(body.error||'Unable to load text');
+      if(project!==state.project||group!==workspace.group||workspace.selected!==item.path)return;
+      const pre=previewNode('pre');pre.textContent=body.text;
+      container.append(pre);
+    }else if(item.type==='document'){
+      const url=workspaceUrl('document',item,project,group);
+      const link=previewNode('a');link.href=url;link.download=item.name;
+      link.textContent='Download / Open document';
+      link.className='file-open';container.append(link);
+      if(item.name.toLowerCase().endsWith('.pdf')){
+        const viewer=previewNode('iframe','width:100%;height:55vh;border:1px solid #344056;border-radius:8px');
+        viewer.title=item.name;viewer.src=url;container.append(viewer);
+      }
+    }else{
+      const url=workspaceUrl('media',item,project,group);
+      const media=item.type==='image'?previewNode('img'):item.type==='audio'?
+        previewNode('audio'):previewNode('video');
+      media.src=url;
+      if(item.type==='image'){media.alt=item.name;media.loading='lazy';}
+      else {media.controls=true;media.preload='metadata';}
+      container.append(media);
+    }
+  }catch(error){
+    const p=previewNode('p');p.textContent='Preview error: '+error.message;container.append(p);
+  }
+}
+function drawFileList() {
+  const list=$('file-list');list.replaceChildren();
+  if(workspace.group==='trash'){
+    const data=workspace.trashItems||[];
+    $('file-count').textContent=data.length+' deleted';
+    for(const item of data){
+      const button=previewNode('button');button.className='file-entry';
+      button.textContent='♻ '+item.name+' · '+item.location;
+      button.onclick=()=>{
+        switchInspector('file');
+        $('file-preview').replaceChildren();
+        const label=previewNode('p');label.textContent='Deleted '+item.deletedAt+' · Original: '+item.location+'/'+(item.folder?item.folder+'/':'')+item.name;
+        $('file-preview').append(label);
+        const restore=previewNode('button');restore.className='restore-file';
+        restore.textContent='↩ Restore file';restore.onclick=()=>restoreTrash(item);
+        $('file-preview').append(restore);
+      };
+      list.append(button);
+    }
+    if(!data.length)list.textContent='Trash is empty — deleted files can be restored here.';
+    return;
+  }
+  const filter=$('file-search').value.trim().toLowerCase();
+  const files=workspace.entries.filter(f=>!filter ||
+    (f.name+' '+f.folder+' '+f.root).toLowerCase().includes(filter));
+  $('file-count').textContent=files.length+(files.length!==workspace.entries.length?' / '+workspace.entries.length:'')+' files';
+  let previousRoot='';
+  for(const item of files){
+    if(previousRoot!==item.root){
+      previousRoot=item.root;
+      const header=previewNode('div');header.className='file-root';header.textContent=item.root;list.append(header);
+    }
+    const button=previewNode('button');
+    button.className='file-entry'+(workspace.selected===item.path?' active':'');
+    button.title=item.root+' / '+item.folder+(item.folder?'/':'')+item.name;
+    const icon=previewNode('span');icon.className='file-symbol';icon.textContent=fileIcons[item.type]||'•';
+    const label=previewNode('span');label.className='file-name';label.textContent=(item.folder?item.folder+'/':'')+item.name;
+    const sz=previewNode('small');sz.textContent=sizeLabel(item.size);
+    button.append(icon,label,sz);
+    button.onclick=()=>openWorkspaceFile(item);
+    list.append(button);
+  }
+  if(!files.length){
+    const p=previewNode('p','padding:16px;font-size:12px;color:#93a4bf');
+    p.textContent='No files in this category. Try another tab or clear the filter.';
+    list.append(p);
+  }
+}
+async function loadWorkspaceGroup(group,reset=true) {
+  const request=++workspace.request,project=state.project;
+  workspace.group=group;
+  chooseUploadLocation();
+  for(const b of $('file-tabs').querySelectorAll('button')){
+    b.classList.toggle('active',b.dataset.group===group);
+  }
+  $('file-list').textContent='Loading files…';
+  if(group==='trash')return loadTrash();
+  if(reset)workspace.selected=null;
+  try {
+    const res=await fetch('/api/studio/entries?'+new URLSearchParams({project,group}));
+    const result=await res.json();
+    if(!res.ok)throw new Error(result.error||'Could not list files');
+    if(request!==workspace.request || project!==state.project)return;
+    workspace.entries=result.entries;
+    drawFileList();
+    if(reset){
+      const preferred=workspace.entries.find(f=>f.name==='brand.md')||
+        workspace.entries.find(f=>f.type==='image')||
+        workspace.entries.find(f=>f.type==='text')||
+        workspace.entries[0];
+      if(preferred)await openWorkspaceFile(preferred);
+      else $('file-preview').textContent='No files in this category.';
+    }
+  }catch(error) {
+    if(request!==workspace.request)return;
+    $('file-list').textContent='Explorer error: '+error.message;
+  }
+}
+function printConsole(value,{append=false}={}) {
+  const pre=$('console-output');
+  const atBottom=pre.parentElement.scrollHeight-pre.parentElement.scrollTop-pre.parentElement.clientHeight<100;
+  pre.textContent=append?pre.textContent+String(value):String(value);
+  if(atBottom)pre.parentElement.scrollTop=pre.parentElement.scrollHeight;
+}
+function consoleStatus(value) {$('console-state').textContent=value.toUpperCase();}
+function taskUrl(id){return '/api/studio/task?'+new URLSearchParams({id}).toString();}
+async function pollTask() {
+  if(!workspace.runningTask)return;
+  const id=workspace.runningTask;
+  try {
+    const res=await fetch(taskUrl(id));
+    const job=await res.json();
+    if(id!==workspace.runningTask)return;
+    if(!res.ok||!job||!job.id)throw new Error('Lost task status');
+    printConsole(job.output);
+    consoleStatus(job.status);
+    if(job.status!=='running') {
+      workspace.runningTask=null;
+      $('cancel-task').disabled=true;
+      clearInterval(workspace.interval);workspace.interval=null;
+      if(job.status==='complete' && (job.command.startsWith('render ')||
+        job.command.startsWith('benchmark '))) {
+        const selected=window.allProjects.find(x=>x.name===job.project);
+        if(selected)selected.hasVideo=true;
+        if(state.project===job.project)load(job.project);
+      } else if(job.status==='complete' && job.command.startsWith('stills '))
+        loadWorkspaceGroup(workspace.group,false);
+    }
+  }catch(error) {
+    consoleStatus('ERROR');
+    printConsole('\nTask status unavailable: '+error.message,{append:true});
+    clearInterval(workspace.interval);workspace.interval=null;
+    workspace.runningTask=null;
+    $('cancel-task').disabled=true;
+  }
+}
+async function submitTask(raw) {
+  const command=raw.trim();
+  if(!command)return;
+  if(workspace.runningTask){printConsole('\nA task is running. Stop or finish it first.',{append:true});return;}
+  $('console-command').value='';
+  consoleStatus('starting');
+  try{
+    const res=await fetch('/api/studio/task',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({project:state.project,command})});
+    const result=await res.json();
+    if(!res.ok)throw new Error(result.error||'Command rejected');
+    if(result.builtin==='help'){printConsole(result.output);consoleStatus('idle');return;}
+    if(result.builtin==='clear'){printConsole('');consoleStatus('idle');return;}
+    workspace.runningTask=result.id;
+    printConsole(result.output||'> '+command+'\n');
+    consoleStatus(result.status);
+    $('cancel-task').disabled=false;
+    if(result.command.startsWith('render ')||result.command.startsWith('benchmark '))pause();
+    workspace.interval=setInterval(pollTask,450);
+    await pollTask();
+  }catch(error){
+    consoleStatus('error');printConsole('\n> '+command+'\nERROR: '+error.message,{append:true});
+  }
+}
+function attachWorkbenchHandlers(){
+  $('upload-asset').onclick=()=>$('asset-picker').click();
+  $('asset-picker').onchange=e=>{uploadMedia([...e.target.files]);e.target.value='';};
+  const dropArea=$('file-list');
+  dropArea.addEventListener('dragover',event=>{if(event.dataTransfer?.types.includes('Files'))event.preventDefault();});
+  dropArea.addEventListener('drop',event=>{if(!event.dataTransfer?.files?.length)return;
+    event.preventDefault();uploadMedia([...event.dataTransfer.files]);});
+  $('inspector-full').onclick=()=>setWorkspaceView(document.querySelector('.workbench').classList.contains('inspector-expanded')?'normal':'inspector');
+  $('inspector-back').onclick=()=>setWorkspaceView('normal');
+  $('preview-full').onclick=()=>setWorkspaceView(document.querySelector('.workbench').classList.contains('preview-expanded')?'normal':'preview');
+  for(const b of $('file-tabs').querySelectorAll('button'))
+    b.onclick=()=>loadWorkspaceGroup(b.dataset.group);
+  for(const b of document.querySelectorAll('[data-panel]'))
+    b.onclick=()=>switchInspector(b.dataset.panel);
+  $('file-search').oninput=drawFileList;
+  $('console-form').onsubmit=e=>{e.preventDefault();submitTask($('console-command').value);};
+  for(const b of document.querySelectorAll('[data-task]'))
+    b.onclick=()=>submitTask(b.dataset.task);
+  $('cancel-task').onclick=async()=>{
+    if(!workspace.runningTask)return;
+    const response=await fetch('/api/studio/task/cancel',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({id:workspace.runningTask})});
+    const data=await response.json();
+    if(!data.cancelRequested)printConsole('\nCould not cancel task',{append:true});
+  };
+  $('toggle-console').onclick=()=>{
+    const consoleEl=document.querySelector('.task-console');
+    consoleEl.classList.toggle('expanded');
+    $('toggle-console').textContent=consoleEl.classList.contains('expanded')?'Shrink ▾':'Expand ▴';
+    resize();
+  };
+  // Loading state survives a page refresh without reconnecting to a process via shell.
+  fetch('/api/studio/task').then(r=>r.json()).then(({active})=>{
+    if(active?.id && active.status==='running'){
+      workspace.runningTask=active.id;$('cancel-task').disabled=false;
+      workspace.interval=setInterval(pollTask,450);pollTask();
+    }
+  }).catch(()=>{});
+}
+
+async function main(){
+  attachWorkbenchHandlers();
+  const library = await fetch('/components/registry.json').then(r => r.json());
+  for(const item of library.components){ const row=document.createElement('div'); row.className='stat'; row.innerHTML='<span></span><strong></strong>'; row.querySelector('span').textContent=item.label; row.querySelector('strong').textContent=item.category; $('components').append(row); }
+  const res=await fetch('/api/projects');
+  if(!res.ok)throw new Error('Could not load projects');
+  const items=await res.json();window.allProjects=items;
+  $('project').replaceChildren(...items.map(({name})=>{
+    const option=document.createElement('option');option.value=name;option.textContent=name;return option;
+  }));
+  if(!items.length)throw new Error('No projects available');
+  $('project').onchange=()=>load($('project').value);
+  $('reload').onclick=()=>load($('project').value);
+  $('save').onclick=saveComposition;
+  $('seek').oninput=()=>{pause();update(Number($('seek').value));};
+  $('play').onclick=startPlayback;
+  $('mute').setAttribute('aria-pressed','false');
+  $('mute').onclick=()=>{const media=$('soundtrack');media.muted=!media.muted;$('mute').setAttribute('aria-pressed',String(media.muted));$('mute').textContent=media.muted?'🔇':'🔊';};
+  $('volume').oninput=()=>{$('soundtrack').volume=Number($('volume').value);};
+  $('start').onclick=()=>{pause();update(0);};
+  $('end').onclick=()=>{pause();update(state.duration-1/30);};
+  $('back').onclick=()=>{pause();update(Math.round(state.time*30-1)/30);};
+  $('next').onclick=()=>{pause();update(Math.round(state.time*30+1)/30);};
+  window.addEventListener('resize',resize);new ResizeObserver(resize).observe($('preview-card'));resize();
+  const names=items.map(x=>x.name);const choice=names.includes('skillz-promo')?'skillz-promo':names[0];
+  $('project').value=choice;await load(choice);
+}
+main().catch(error=>{$('status').textContent=error.message;console.error(error);});
+</script>
+<script type="module" src="/studio/terminal.js"></script>
+</body></html>

@@ -1,3 +1,20 @@
+# Video Studio — Desktop (React + Electron)
+
+**Current UI:** React + TypeScript + shadcn-style UI/Radix + Zustand + Electron. The existing Playwright/FFmpeg Render Engine is retained.
+
+**Windows installer:** `D:\my_project\video-studio\release-optimized\Video-Studio-1.0.0-x64.exe`
+
+**Unpacked app:** `D:\my_project\video-studio\release-optimized\win-unpacked\Video Studio.exe`
+
+**Start from source:** `npm run electron` (Desktop) or `npm run studio` (React in browser, port 4183). The classic HTML Studio is still available with `npm run studio:legacy`.
+
+After installing, use **Settings → Workspace folder** and point it at `D:\my_project\video-studio` to access your existing projects. The installer contains only a seed project, not your private media or large models.
+
+React UI uses Radix/shadcn dialogs (including Delete Confirmation), responsive Panels, Project File Manager, Source/Monaco editor, live HTML preview + MP4 audio, Scenes/Composition, and PowerShell/Claude/Codex Terminal. Electron auto-authenticates the local PTY and keeps Node out of the renderer.
+
+For architecture, verifications and known limitations see **[Electron Migration](docs/electron-migration.md)** and **[Terminal + Monaco Optimization](docs/terminal-monaco-optimization.md)**. See **[Code Recheck](docs/code-recheck-2026-10-10.md)** for the latest code audit and fixes. For the current clean-up audit see **[Code Cleanup](docs/code-cleanup-2026-10-10.md)**. Important: this is **not yet a fully draggable nonlinear video editor** for arbitrary legacy HTML scenes.
+
+---
 # video-studio
 
 คลิป motion graphic ที่เขียนด้วย HTML แล้วเรนเดอร์ด้วย Playwright + ffmpeg (มี motion blur และเสียง)
@@ -72,3 +89,109 @@ node render.mjs <ชื่อ> video 8 4  กำหนดจำนวน Chrome 
 เสียง: มี voice.mp3 → เล่นเต็มเสียง SFX ลดครึ่ง เพลงหลบตอนพูด · ไม่มีเพลง → ใช้แค่ SFX · ไม่มีทั้งคู่ → คลิปเงียบ · ชื่อ SFX ที่หาไฟล์ไม่เจอจะถูกข้ามและแจ้งใน log
 
 ดูในเบราว์เซอร์: เปิด `source/index.html` เล่นวนพร้อมแถบเลื่อนเวลา หรือเติม `?t=5` เพื่อค้างที่วินาทีที่ 5
+
+## Production Rendering (อัปเดต 2026-10-10)
+
+คำสั่งเดิมยังใช้งานได้:
+
+```bash
+npm test
+node render.mjs skillz-promo check
+node render.mjs skillz-promo stills
+node render.mjs skillz-promo video 1 2    # เรนเดอร์เร็วสำหรับตรวจงาน
+node render.mjs skillz-promo video        # final: motion blur 8 subframes
+node render.mjs sword-of-coming-s3 audio # ทดสอบ Audio Mix โดยไม่ต้องเรนเดอร์ภาพ
+```
+
+ระบบใหม่ใช้ **Native PCM Mixer**: Decode SFX/Voice/Music แยกด้วย FFmpeg, รวมเสียงและ Ducking ใน Node, เข้ารหัส AAC หนึ่งครั้ง แล้ว Mux กับวิดีโอด้วย Stream Copy ป้องกัน FFmpeg กราฟเสียงหลายสิบแทร็กค้าง (issues/003, 005, 006)
+
+การ Render วิดีโอมีขั้นตอนดังนี้:
+1. ตรวจชื่อตำแหน่งโปรเจกต์, เวลาและจำนวนเฟรม
+2. ตรวจภาพ/ฟอนต์ และสร้างเสียง AAC ก่อน
+3. Capture และ Encode ภาพด้วย Chrome หลาย Workers แบบ bounded queue; ถ้า Worker/Encoder ล้มจะหยุดแทนการรอค้าง
+4. ปิด Chrome ทุกตัว ก่อนรวม AAC กับ H.264
+5. ใช้ ffprobe ตรวจ 1080×1920, 30fps, จำนวนเฟรม, ความยาว, Audio Stream
+6. เผยแพร่ไฟล์ด้วย Staging + Backup/Restore เพื่อไม่เขียนทับไฟล์เดิมเมื่อ Render ไม่ผ่าน
+
+**ไฟล์ MP4 เดิมไม่ถูกแทนที่จนกว่าจะตรวจสอบผ่าน**; หาก Process ถูก Kill แบบบังคับ อาจมีไฟล์ชั่วคราวชื่อ `.<project>-<pid>-<timestamp>.*` หลงเหลือใน `output/` ได้ ให้ตรวจว่าไม่มี Render อื่นกำลังทำงานก่อนลบไฟล์ดังกล่าว
+
+**ข้อจำกัด:** PCM Mixer รองรับคลิปที่มีเสียงยาวไม่เกิน 600 วินาที; ยังไม่มี Project Lock สำหรับป้องกันการ Render โปรเจกต์เดียวกันพร้อมกัน
+
+อ่านรายละเอียด สถานะการทดสอบ และข้อจำกัดก่อนใช้งานจริงที่ [docs/production-readiness.md](docs/production-readiness.md)
+
+## HyperFrames-inspired extensions (2026-10-10)
+
+คำว่า HyperFrames Integration ในโครงการนี้หมายถึง **เลือกนำแนวคิดและส่วนที่เข้ากันได้มาเพิ่ม** ไม่ใช่ Fork/ย้าย HyperFrames ทั้งก้อน และโปรเจกต์เก่าทั้ง 8 โปรเจกต์ไม่ถูกแปลงหรือ Rewrite
+
+```powershell
+npm test
+npm run studio                  # Local Studio: http://127.0.0.1:4177
+node batch.mjs examples/batch-smoke.json --concurrency=2
+node recovery.mjs skillz-promo          # Dry run by default
+node benchmark.mjs composition-demo 1 2
+node audio-audit.mjs sword-of-coming-s3
+node compose-sync.mjs composition-demo
+```
+
+- Studio Preview ของงานเดิม: Seek/Play/Pause, แสดง Timeline จาก DOM, ดู Components
+- `composition-demo`: ใช้ JSON Timeline Editor เพื่อแก้เวลาและข้อความ (Save → Sync sidecar → Re-render)
+- Per-project Lock, Auto Orphan Cleanup, Batch Runner, Benchmark, Audio A/B level report
+- Container Cloud Job runner และ GitHub Actions CI configuration (ต้อง Deploy/Run จริงใน environment เป้าหมาย)
+
+อ่าน [docs/hyperframes-integration.md](docs/hyperframes-integration.md) สำหรับตารางความคืบหน้าและข้อจำกัด และ [docs/cloud-worker.md](docs/cloud-worker.md) สำหรับ Cloud
+
+### Studio: Play พร้อมเสียง (10 ต.ค. 2026)
+
+- กด `npm run studio` เปิด `http://127.0.0.1:4177` แล้วเลือกโปรเจกต์ที่มี MP4 เรนเดอร์แล้ว เช่น `sword-of-coming-s2`
+- ปุ่ม **Play** จะใช้แทร็กเสียงจาก `projects/<project>/output/<project>.mp4` และซิงก์ภาพ HTML `render(t)` ให้เดินตามเวลาเสียง (audio master clock)
+- ใช้ปุ่ม Pause, Timeline Seek, Mute และ Volume ที่แถบควบคุมได้ทันที; เบราว์เซอร์ต้องอนุญาตให้เล่นเสียง และกด Play ด้วยตัวเองครั้งแรก
+- ถ้ายังไม่มี MP4 หน้าจอจะแจ้ง **silent preview** โดยภาพยังเล่นได้; ให้ `node render.mjs <project> video` เพื่อสร้างไฟล์เสียง/ภาพรวมกันก่อน
+- **สำคัญ:** ภาพใน Preview อ่าน HTML ล่าสุด แต่เสียงมาจาก **MP4 ที่เรนเดอร์ครั้งล่าสุด** ถ้าเปลี่ยนเสียงพากย์ SFX หรือจังหวะฉาก ต้องเรนเดอร์ใหม่และกด Reload หน้า Studio เพื่อให้เสียงตรง
+- Server รองรับ `HTTP Range` สำหรับอ่าน MP4 เฉพาะส่วน จึง Seek ไปกลางคลิปได้โดยไม่โหลดไฟล์ใหญ่ทั้งหมด
+- หลังอัปเดตโค้ด Studio Server (`studio.mjs`) ต้องหยุดแล้วสั่ง `npm run studio` ใหม่เพื่อใช้ Range Streaming เวอร์ชันใหม่
+
+## Studio Project Workbench
+
+ใหม่ใน Studio: **Project Workspace** — หน้าจอไม่ได้มีไว้เพียง Preview อีกต่อไป แต่รวมไฟล์และงาน Render ของโปรเจกต์ไว้ในหน้าเดียว
+
+- **Explorer ด้านซ้าย:** Source, Assets, Brand, Docs, FX, Models, Output; คลิกไฟล์เพื่อดูเนื้อหา ไม่แก้ไฟล์ Source/Brand อัตโนมัติ
+- **Inspector ด้านขวา:** ดูภาพ, ฟังเสียง Brand/Voice/SFX, เปิด MP4, อ่าน `.md` / `.html` / `.js` / `.srt`, เลือก Scenes เพื่อ Seek, และแก้ Composition แบบ JSON ของโปรเจกต์ที่รองรับ
+- **Project Console ด้านล่าง:** มีการสั่งงานจริงแบบไม่ต้องสลับ Terminal, พร้อม Log สดและ Stop งาน (ใช้ `taskkill /T /F` เมื่อหยุดบน Windows)
+- **ความปลอดภัย:** Studio เปิดที่ `127.0.0.1` เท่านั้น, API จำกัดไฟล์ตามหมวด, ไม่เปิดอ่านไฟล์โมเดลขนาดใหญ่ และ Console ใช้ Allowlist คำสั่ง ไม่ใช่ PowerShell แบบไม่จำกัดสิทธิ์
+- **Preview พร้อมเสียง:** เสียงมาจาก MP4 ล่าสุด ส่วนภาพมาจาก HTML Source ปัจจุบัน จึงต้อง Render ใหม่เมื่อแก้เนื้อหา/เสียง/จังหวะแล้ว
+
+คำสั่งที่ Console รองรับ:
+
+```text
+help
+check
+stills
+render 1 2
+render 8 2
+voice
+audio
+probe
+test
+status
+recovery
+benchmark 1 2
+clear
+```
+
+เปิดด้วย `npm run studio` แล้วเลือกโปรเจกต์; ไม่ต้องเปิด Terminal อื่นเพื่อใช้คำสั่งเหล่านี้ เพิ่มเติมที่ [docs/studio-workspace.md](docs/studio-workspace.md)
+
+### Studio media upload, expanded previews and full PowerShell
+
+Recent enhancements: Project Explorer now supports image/audio/video uploads to `source/img`, `brand`, or `brand/sfx` without overwriting existing media, plus in-place rename. The Inspector can Expand into the main workspace, and Live Preview has its own Expand/Restore control.
+
+To start the **real interactive PowerShell PTY** alongside Render Tasks, double-click `start-studio-terminal.cmd` or run:
+
+```powershell
+npm run studio
+```
+
+Open `http://127.0.0.1:4183`, choose the PowerShell tab, and enter the terminal access code printed at startup. This terminal has full Windows user permissions and can launch installed `claude` and `codex` commands. Standard `npm run studio` now launches the terminal-enabled Studio on port 4183 (the user must unlock it with a startup access code). Use `npm run studio:safe` for task-only mode on port 4177. See [docs/studio-workspace.md](docs/studio-workspace.md) for workflow, limitations, and security.
+
+### File Manager: full document/media lifecycle
+
+Added project Documents (`projects/<name>/docs`) and Brand notes import. Select an eligible file to **Rename**, **Duplicate**, or **Move to Trash**. Open the **Trash** tab to restore the original file. Files from shared tools, model binaries, source scripts and protected `brand.md` cannot be changed through Explorer. Duplicate/restore never overwrite existing files. See [Studio Workspace](docs/studio-workspace.md).

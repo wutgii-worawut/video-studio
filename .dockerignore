@@ -1,0 +1,10 @@
+.git
+.github
+node_modules
+models
+**/output
+**/.DS_Store
+**/*.render.lock
+**/.audio-test.m4a
+**/output/**
+batch-results.json

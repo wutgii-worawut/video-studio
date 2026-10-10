@@ -1,0 +1,50 @@
+name: Video Studio CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install Node modules
+        run: npm ci
+      - name: Install FFmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - name: Install FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg --no-progress -y
+      - name: Install Chrome
+        run: npx playwright install chrome
+      - name: Run Node tests including Studio browser
+        run: npm test
+      - name: Check all project layouts
+        run: node batch.mjs examples/all-layout-check.json --concurrency=2 --report=projects/composition-demo/output/ci-layout-report.json
+  render-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: npx playwright install chrome
+      - run: node render.mjs composition-demo video 1 2
+      - run: ffprobe -v error -show_entries format=duration -of json projects/composition-demo/output/composition-demo.mp4

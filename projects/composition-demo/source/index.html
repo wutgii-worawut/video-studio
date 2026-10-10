@@ -1,0 +1,39 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8">
+<title>Declarative Composition Demo</title>
+<style>
+html,body{width:100%;height:100%;margin:0;background:#090d21;color:#f5f7ff;overflow:hidden}
+#root{position:relative;width:1080px;height:1920px;overflow:hidden;background:radial-gradient(circle at 40% 40%,#242f64,#090d21 65%)}
+.scene{position:absolute;inset:0;visibility:hidden;will-change:opacity}
+</style></head><body><div id="root">
+<div class="scene" id="intro"></div><div class="scene" id="feature"></div><div class="scene" id="outro"></div>
+</div>
+<script src="../../../components/render.js"></script>
+<script src="../../../lib/compose-browser.js"></script>
+<script src="composition-data.js"></script>
+<script>
+function init() {
+  const spec = window.VIDEO_COMPOSITION;
+  if (!spec) throw new Error('composition-data.js missing: run compose-sync.mjs');
+  const names = { 'title-card':'titleCard',callout:'callout',cta:'cta',counter:'counter' };
+  for(const clip of spec.clips) {
+    const el=document.getElementById(clip.id);
+    if(!el) throw new Error('Clip DOM id missing: '+clip.id);
+    const factory=VideoComponents[names[clip.component]];
+    if(!factory) throw new Error('Component not found: '+clip.component);
+    el.replaceChildren(factory(clip.props));
+  }
+  VideoCompositor.make(spec);
+  window.STILLS = [1,3,5].filter(t=>t<window.DUR);
+  if (!location.search.includes('render')) {
+    const startedAt=performance.now();
+    function loop(now) {
+      window.render(((now-startedAt)/1000)%window.DUR);
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  }
+  window.render(0);
+  window.__compositionReady = true;
+}
+try { init(); } catch (err) {window.__compositionError = err.message;console.error(err);}
+</script></body></html>

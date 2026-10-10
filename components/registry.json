@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "description": "Reusable HTML building blocks; independent of any single branded project",
+  "components": [
+    {
+      "id": "title-card",
+      "label": "Title / Headline",
+      "category": "typography",
+      "factory": "VideoComponents.titleCard",
+      "props": [
+        "title",
+        "subtitle",
+        "accent"
+      ]
+    },
+    {
+      "id": "callout",
+      "label": "Information Callout",
+      "category": "text",
+      "factory": "VideoComponents.callout",
+      "props": [
+        "text",
+        "accent"
+      ]
+    },
+    {
+      "id": "cta",
+      "label": "Call to Action",
+      "category": "marketing",
+      "factory": "VideoComponents.cta",
+      "props": [
+        "text",
+        "accent"
+      ]
+    },
+    {
+      "id": "counter",
+      "label": "Number Counter",
+      "category": "data",
+      "factory": "VideoComponents.counter",
+      "props": [
+        "value",
+        "suffix",
+        "accent"
+      ]
+    },
+    {
+      "id": "mochi",
+      "label": "Cute Doodle Mochi",
+      "category": "mascot",
+      "source": "styles/cute-doodle/mochi.js",
+      "props": [
+        "eyes",
+        "mouth",
+        "outfit"
+      ]
+    },
+    {
+      "id": "manga-focus",
+      "label": "Manga Focus Lines",
+      "category": "effects",
+      "source": "styles/manga-action/manga.js",
+      "props": [
+        "cx",
+        "cy",
+        "n"
+      ]
+    },
+    {
+      "id": "fx-words",
+      "label": "Thai Word Stagger",
+      "category": "effects",
+      "source": "lib/fx.js",
+      "props": [
+        "selector",
+        "time",
+        "duration"
+      ]
+    }
+  ]
+}

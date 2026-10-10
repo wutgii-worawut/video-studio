@@ -1,0 +1,40 @@
+{
+  "id": "composition-demo",
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "duration": 6,
+  "clips": [
+    {
+      "id": "intro",
+      "start": 0,
+      "duration": 2,
+      "track": 0,
+      "component": "title-card",
+      "props": {
+        "title": "Video Studio",
+        "subtitle": "Declarative Timeline + HTML Components"
+      }
+    },
+    {
+      "id": "feature",
+      "start": 2,
+      "duration": 2,
+      "track": 0,
+      "component": "callout",
+      "props": {
+        "text": "Seekable • Repeatable • Testable"
+      }
+    },
+    {
+      "id": "outro",
+      "start": 4,
+      "duration": 2,
+      "track": 0,
+      "component": "cta",
+      "props": {
+        "text": "สร้างวิดีโอได้เลย"
+      }
+    }
+  ]
+}

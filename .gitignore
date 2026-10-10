@@ -1,3 +1,16 @@
 node_modules/
 projects/*/output/
 models/
+batch-results*.json
+batch-smoke-result.json
+studio/dist/
+release/
+app/node_modules/
+*.tsbuildinfo
+playwright-report/
+test-results/
+# Generated desktop installers / unpacked builds; keep project sources and media.
+release-*/
+projects/*/.studio-trash/
+coverage/
+.cache/

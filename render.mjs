@@ -4,21 +4,27 @@
 //   blur    = motion-blur subframes per frame (default 8, 1 = off for a quick draft)
 //   workers = Chrome instances capturing in parallel (default: fits this machine's cores and RAM)
 import { chromium } from 'playwright';
-import { spawn, execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, writeFileSync, unlinkSync } from 'node:fs';
-import { EventEmitter, once } from 'node:events';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { rename, rm } from 'node:fs/promises';
+import { projectName, positiveInt, timeline, command, probeVideo, promoteFile } from './lib/production.mjs';
+import { encodeFrames } from './lib/render-video.mjs';
+import { mixToAac } from './lib/audio-pcm.mjs';
+import { acquireProjectLock, cleanOrphanedStages } from './lib/recovery.mjs';
 import { cpus, freemem } from 'node:os';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 
-process.chdir(fileURLToPath(new URL('.', import.meta.url)));   // paths work from any folder
-const [project, mode = 'video', blurArg = '8', workersArg] = process.argv.slice(2);
+process.chdir(process.env.VIDEO_STUDIO_ROOT || fileURLToPath(new URL('.', import.meta.url)));   // project workspace may live outside packaged Electron
+const [projectArg, mode = 'video', blurArg, workersArg] = process.argv.slice(2);
+const project = projectName(projectArg);
+if (!['check', 'stills', 'video', 'voice', 'audio'].includes(mode)) throw new Error('Unknown mode: ' + mode);
 const src = `projects/${project}/source/index.html`, out = `projects/${project}/output`, brand = `projects/${project}/brand`;
 if (!project || !existsSync(src)) {
   console.error(`usage: node render.mjs <project> [check|stills|video|voice] [blur] [workers]\nprojects: ${readdirSync('projects').join(', ')}`);
   process.exit(1);
 }
 const FPS = 30;
-const BLUR = Math.max(1, parseInt(blurArg, 10) || 1);
+const BLUR = positiveInt(blurArg, 'motion blur samples', 8, 64);
 const SHUTTER = 0.5;            // fraction of a frame the "shutter" stays open (0.5 = film-like 180°)
 const MUSIC_VOLUME = 0.55;      // music sits under the sound effects
 const SFX_UNDER_VOICE = 0.5;    // effects step back when there is a voiceover
@@ -26,8 +32,8 @@ const SFX_UNDER_VOICE = 0.5;    // effects step back when there is a voiceover
 const SAFE = { left: 60, right: 960, top: 150, bottom: 1500 };
 // Separate Chrome instances scale (one shared Chrome plateaus at ~1.5x); measured gains stop at 8 on a 20-core PC.
 // Each one needs ~400 MB.
-const WORKERS = mode !== 'video' ? 1 : Math.max(1, parseInt(workersArg, 10) ||
-  Math.min(8, Math.floor(cpus().length / 2), Math.floor(freemem() / 400e6)));
+const WORKERS = mode !== 'video' ? 1 : positiveInt(workersArg, 'worker count',
+  Math.max(1, Math.min(8, Math.floor(cpus().length / 2), Math.floor(freemem() / 600e6))), 16);
 
 if (mode === 'voice') {
   // Loudness of brand/voice.* per video frame → source/voice.js (window.VOICE), which Mochi.talk uses for lip-sync.
@@ -52,14 +58,28 @@ if (mode === 'voice') {
 }
 
 const startedAt = Date.now();
-const workers = await Promise.all(Array.from({ length: WORKERS }, openWorker));
-// A page may set window.DUR (seconds, default 15) and window.STILLS (preview times, default 1/5/9/14 s).
-const { DUR, STILLS } = await workers[0].page.evaluate(() => ({ DUR: window.DUR || 15, STILLS: window.STILLS || [1, 5, 9, 14] }));
-const shot = async (w, t) => {                     // fast lossless PNG straight from Chrome (~4x faster than page.screenshot)
-  await w.page.evaluate((t) => render(t), t);
-  const { data } = await w.cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true });
-  return Buffer.from(data, 'base64');
-};
+const controller = new AbortController();
+process.once('SIGINT', () => controller.abort(new Error('SIGINT received')));
+process.once('SIGTERM', () => controller.abort(new Error('SIGTERM received')));
+let DUR, STILLS;
+const workers = [];
+const releaseProjectLock = mode === 'video'
+  ? (mkdirSync(out, { recursive: true }), await acquireProjectLock(out, project))
+  : null;
+try {
+  if (mode === 'video') {
+    const recovery = await cleanOrphanedStages(out, project, { dryRun: false, ownerPid: process.pid });
+    if (recovery.removed.length) console.log('Recovered stale artifacts: ' + recovery.removed.join(', '));
+  }
+  const opened = await Promise.allSettled(Array.from({ length: WORKERS }, openWorker));
+  for (const result of opened) if (result.status === 'fulfilled') workers.push(result.value);
+  const rejected = opened.find((r) => r.status === 'rejected');
+  if (rejected) throw rejected.reason;
+  ({ DUR, STILLS } = await workers[0].page.evaluate(() => ({
+    DUR: window.DUR ?? 15, STILLS: window.STILLS,
+  })));
+  const plan = timeline(DUR, STILLS, FPS);
+  STILLS = plan.stills;
 
 if (mode === 'check') {
   // Every readable .tx (visible and settled, i.e. not mid-transition) must sit inside the safe zone and its card,
@@ -95,120 +115,105 @@ if (mode === 'check') {
   mkdirSync(`${out}/stills`, { recursive: true });
   for (const t of STILLS) writeFileSync(`${out}/stills/still-${String(t).padStart(2, '0')}s.png`, await shot(workers[0], t));
   console.log(`stills saved to ${out}/stills`);
+} else if (mode === 'audio') {
+  mkdirSync(out, { recursive: true });
+  const cues = await workers[0].page.evaluate(() => window.SFX || []);
+  const result = await mixToAac({
+    cues, brand, duration: DUR, output: out + '/.audio-test.m4a',
+    signal: controller.signal,
+  });
+  if (!result.hasAudio) throw new Error('This composition contains no audio');
+  console.log('AUDIO TEST READY');
 } else {
   mkdirSync(out, { recursive: true });
-  const audio = buildAudio(await workers[0].page.evaluate(() => window.SFX || []));
-  const video = BLUR > 1   // average BLUR subframes into each output frame
-    ? `[0:v]tmix=frames=${BLUR},select=not(mod(n+1\\,${BLUR})),setpts=N/(${FPS}*TB),format=yuv420p[vout]`
-    : '[0:v]format=yuv420p[vout]';
-  // Pass 1 encodes the picture alone; pass 2 adds the sound without re-encoding. In one pass, ffmpeg holds the
-  // finished audio back until video catches up while x264 waits for ~40 look-ahead frames: they deadlock.
-  const final = `${out}/${project}.mp4`, silent = audio.map.length ? `${out}/.video-only.mp4` : final;
-  const ff = spawn('ffmpeg', ['-y', '-v', 'error', '-f', 'image2pipe', '-framerate', String(FPS * BLUR), '-i', '-',
-    '-filter_complex', video, '-map', '[vout]',
-    '-r', String(FPS), '-c:v', 'libx264', '-crf', '18', '-movflags', '+faststart', silent],
-    { stdio: ['pipe', 'inherit', 'inherit'] });
-
-  // Workers capture shots out of order; the writer feeds ffmpeg strictly in order.
-  // WINDOW caps how far workers run ahead of the writer, so memory stays bounded.
-  const total = FPS * DUR * BLUR, WINDOW = WORKERS * 4;
-  const timeOf = (j) => {
-    const i = Math.floor(j / BLUR), k = j % BLUR;
-    return BLUR > 1 ? (i + ((k + 0.5) / BLUR - 0.5) * SHUTTER) / FPS : i / FPS;
-  };
-  const ready = new Map(), ev = new EventEmitter();
-  let next = 0, written = 0;
-  const capture = async (w) => {
-    while (next < total) {
-      if (next - written >= WINDOW) { await once(ev, 'written'); continue; }
-      const j = next++;
-      ready.set(j, await shot(w, timeOf(j)));
-      ev.emit('ready');
-    }
-  };
-  const writer = (async () => {
-    for (let j = 0; j < total; j++) {
-      while (!ready.has(j)) await once(ev, 'ready');
-      const buf = ready.get(j);
-      ready.delete(j); written = j + 1; ev.emit('written');
-      if (!ff.stdin.write(buf)) await once(ff.stdin, 'drain');
-      if ((j + 1) % (FPS * BLUR) === 0) process.stdout.write(`\rframe ${(j + 1) / BLUR}/${FPS * DUR}  ${((Date.now() - startedAt) / 1000).toFixed(0)}s`);
-    }
-  })();
-  await Promise.all([...workers.map(capture), writer]);
-  ff.stdin.end();
-  const [code] = await once(ff, 'close');
-  if (code) throw new Error(`ffmpeg exited ${code}`);
-  if (silent !== final) {
-    // the silent video is input 0, as stdin was in pass 1, so the audio graph's input numbers still match
-    // -nostdin: with an inherited stdin from a background shell ffmpeg can spin forever waiting for keypresses
-    execFileSync('ffmpeg', ['-nostdin', '-y', '-v', 'error', '-i', silent, ...audio.inputs, '-filter_complex', audio.graph.join(';'),
-      '-map', '0:v', ...audio.map, '-c:v', 'copy', '-movflags', '+faststart', final], { stdio: ['ignore', 'inherit', 'inherit'] });
-    unlinkSync(silent);
-  }
-  console.log(`\nsaved ${out}/${project}.mp4 (motion blur ${BLUR > 1 ? BLUR + ' subframes' : 'off'}, ${WORKERS} workers, ${((Date.now() - startedAt) / 1000).toFixed(0)}s)`);
-}
-await Promise.all(workers.map((w) => w.browser.close()));
-
-// One Chrome instance with the page loaded and every font weight/subset and image (incl. CSS backgrounds) ready,
-// so no frame is captured with a fallback font or a missing picture.
-async function openWorker() {
-  const browser = await chromium.launch({ channel: 'chrome' });
-  const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
-  await page.goto(pathToFileURL(src).href + '?render');
-  const failed = await page.evaluate(async () => {
-    const fonts = await Promise.all([...document.fonts].map((f) => f.load().then(() => null, () => `${f.family} ${f.weight}`)));
-    const urls = new Set([...document.images].map((i) => i.src));
-    for (const el of document.querySelectorAll('*'))
-      for (const [, u] of getComputedStyle(el).backgroundImage.matchAll(/url\("?(.+?)"?\)/g)) urls.add(u);
-    const imgs = await Promise.all([...urls].map((u) => { const i = new Image(); i.src = u; return i.decode().then(() => null, () => u); }));
-    return [...fonts, ...imgs].filter(Boolean);
-  });
-  if (failed.length) { console.error('failed to load:\n  ' + failed.join('\n  ')); process.exit(1); }
-  return { browser, page, cdp: await page.context().newCDPSession(page) };
-}
-
-// Mix the page's SFX cues (window.SFX = [[time, name, volume], ...]), optional brand/voice.* (voiceover, played once
-// from 0 s at full level) and optional brand/music.* into one track. With a voiceover the effects drop to
-// SFX_UNDER_VOICE and the music ducks whenever someone speaks. Anything missing is skipped with a note;
-// with no sounds at all the clip renders silent.
-function buildAudio(cues) {
-  const find = (base) => ['wav', 'mp3', 'm4a', 'ogg'].map((e) => `${base}.${e}`).find((f) => existsSync(f));
-  const voice = find(`${brand}/voice`), music = find(`${brand}/music`);
-  const sfxLevel = voice ? SFX_UNDER_VOICE : 1;
-  const byFile = new Map(), missing = new Set();
-  for (const [t, name, vol = 1] of cues) {
-    const f = find(`${brand}/sfx/${name}`) ?? find(`sfx/${name}`);
-    if (!f) { missing.add(name); continue; }
-    byFile.set(f, [...(byFile.get(f) ?? []), [t, vol * sfxLevel]]);
-  }
-  const inputs = [], graph = [], mix = [];
-  let idx = 1;
-  for (const [f, list] of byFile) {
-    inputs.push('-i', f);
-    graph.push(`[${idx}:a]asplit=${list.length}${list.map((_, k) => `[s${idx}_${k}]`).join('')}`);
-    list.forEach(([t, vol], k) => {
-      graph.push(`[s${idx}_${k}]adelay=${Math.max(0, Math.round(t * 1000))}:all=1,volume=${vol}[c${idx}_${k}]`);
-      mix.push(`[c${idx}_${k}]`);
+  const cues = await workers[0].page.evaluate(() => window.SFX || []);
+  const runId = process.pid + '-' + Date.now();
+  const audioFile = out + '/.' + project + '-' + runId + '.audio.m4a';
+  const videoOnly = out + '/.' + project + '-' + runId + '.video-only.mp4';
+  const staged = out + '/.' + project + '-' + runId + '.complete.mp4';
+  const published = out + '/' + project + '.mp4';
+  try {
+    // Decode and mix all effects before the expensive frame capture.
+    // The legacy many-way ffmpeg filtergraph could hang even without any video.
+    const audio = await mixToAac({
+      cues, brand, duration: DUR, output: audioFile, signal: controller.signal,
     });
-    idx++;
+    await encodeFrames({
+      workers, frames: plan.frameCount, blur: BLUR, fps: FPS, dest: videoOnly,
+      shot, signal: controller.signal,
+    });
+    await closeWorkers();
+    if (audio.hasAudio) {
+      // Pure stream-copy mux: NO filtergraph, decoding, or re-encoding.
+      await command('ffmpeg', ['-nostdin', '-y', '-v', 'error',
+        '-i', videoOnly, '-i', audioFile, '-map', '0:v:0', '-map', '1:a:0',
+        '-c', 'copy', '-movflags', '+faststart', staged],
+      { timeoutMs: 60000, signal: controller.signal });
+    } else {
+      await rename(videoOnly, staged);
+    }
+    const result = await probeVideo(staged, {
+      width: 1080, height: 1920, fps: FPS,
+      frames: plan.frameCount, audio: audio.hasAudio,
+    }, { signal: controller.signal });
+    if (controller.signal.aborted) throw controller.signal.reason;
+    await promoteFile(staged, published);
+    console.log('\nPUBLISHED ' + published + ' (' + result.frames + ' frames, ' +
+      result.duration.toFixed(2) + 's, audio=' + result.hasAudio +
+      ', blur=' + BLUR + ', workers=' + WORKERS +
+      ', ' + ((Date.now() - startedAt) / 1000).toFixed(1) + 's)');
+  } finally {
+    await Promise.allSettled([rm(videoOnly, { force: true }), rm(staged, { force: true }),
+      rm(audioFile, { force: true })]);
   }
-  if (voice) {
-    inputs.push('-i', voice);
-    graph.push(music ? `[${idx}:a]asplit=2[voice][vkey]` : `[${idx}:a]anull[voice]`);
-    mix.push('[voice]');
-    idx++;
+}
+} finally {
+  try { await closeWorkers(); }
+  finally { await releaseProjectLock?.(); }
+}
+
+
+async function closeWorkers() {
+  const open = workers.splice(0);
+  const results = await Promise.allSettled(open.map(({ browser }) => browser.close()));
+  for (const r of results) if (r.status === 'rejected') console.warn('Browser cleanup: ' + r.reason);
+}
+
+async function shot(w, t) {
+  await w.page.evaluate((time) => window.render(time), t);
+  const { data } = await w.cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true });
+  return Buffer.from(data, 'base64');
+}
+
+// Opens one independent Chrome, waiting until each image/font is ready.
+async function openWorker() {
+  const browser = await chromium.launch(process.env.VIDEO_STUDIO_BROWSER === 'chromium'
+    ? { headless: true, timeout: 45000 }
+    : { channel: 'chrome', timeout: 45000 });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
+    page.setDefaultTimeout(45000);
+    await page.goto(pathToFileURL(src).href + '?render', { waitUntil: 'load', timeout: 45000 });
+    const failed = await page.evaluate(async () => {
+      const fonts = await Promise.all([...document.fonts].map((f) =>
+        f.load().then(() => null, () => f.family + ' ' + f.weight)));
+      const urls = new Set([...document.images].map((i) => i.src));
+      for (const el of document.querySelectorAll('*'))
+        for (const [, url] of getComputedStyle(el).backgroundImage.matchAll(/url\("?(.+?)"?\)/g)) urls.add(url);
+      const imgs = await Promise.all([...urls].map((url) => {
+        const img = new Image(); img.src = url;
+        return img.decode().then(() => null, () => url);
+      }));
+      return [...fonts, ...imgs].filter(Boolean);
+    });
+    if (failed.length) throw new Error('Missing fonts/images:\n' + failed.join('\n'));
+    await page.waitForFunction(() => typeof window.render === 'function' || window.__compositionError,
+      null, { timeout: 15000 });
+    const state = await page.evaluate(() => ({ ready:typeof window.render === 'function', error:window.__compositionError }));
+    if (!state.ready) throw new Error('Composition init failed: ' + state.error);
+    return { browser, page, cdp: await page.context().newCDPSession(page) };
+  } catch (error) {
+    await browser.close().catch(() => {});
+    throw error;
   }
-  if (music) {
-    inputs.push('-stream_loop', '-1', '-i', music);
-    const duck = voice ? '[mus0];[mus0][vkey]sidechaincompress=threshold=0.02:ratio=8:attack=20:release=400' : '';
-    graph.push(`[${idx}:a]atrim=0:${DUR},afade=t=in:d=0.3,afade=t=out:st=${DUR - 1.5}:d=1.5,volume=${MUSIC_VOLUME}${duck}[mus]`);
-    mix.push('[mus]');
-  }
-  console.log(`audio: ${[...byFile.values()].reduce((n, l) => n + l.length, 0)} sfx cues${voice ? ` (at ${SFX_UNDER_VOICE}× under voice)` : ''}, `
-    + `${voice ? 'voice ' + voice : 'no voice'}, ${music ? 'music ' + music + (voice ? ' (ducked)' : '') : `no music (add ${brand}/music.mp3)`}`
-    + (missing.size ? `, missing sfx skipped: ${[...missing].join(', ')}` : ''));
-  if (!mix.length) return { inputs, graph, map: [] };
-  graph.push(`${mix.join('')}amix=inputs=${mix.length}:normalize=0:duration=longest,alimiter=limit=0.9,apad,atrim=0:${DUR}[aout]`);
-  return { inputs, graph, map: ['-map', '[aout]', '-c:a', 'aac', '-b:a', '192k'] };
 }

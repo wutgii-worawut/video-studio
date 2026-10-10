@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "jobs": [
+    {
+      "project": "skillz-promo",
+      "mode": "check"
+    },
+    {
+      "project": "mochi-monday",
+      "mode": "check"
+    },
+    {
+      "project": "mochi-monday-3d",
+      "mode": "check"
+    }
+  ]
+}
