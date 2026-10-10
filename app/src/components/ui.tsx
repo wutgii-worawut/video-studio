@@ -39,8 +39,8 @@ export function AlertDialogContent({children,className}:React.ComponentPropsWith
 export const DropdownMenu=MenuPrimitive.Root;
 export const DropdownMenuTrigger=MenuPrimitive.Trigger;
 export const DropdownMenuSeparator=MenuPrimitive.Separator;
-export function DropdownMenuContent({children,align='end',...props}:React.ComponentPropsWithoutRef<typeof MenuPrimitive.Content>){
- return <MenuPrimitive.Portal><MenuPrimitive.Content align={align} sideOffset={6} className="ui-menu" {...props}>{children}</MenuPrimitive.Content></MenuPrimitive.Portal>;
+export function DropdownMenuContent({children,align='end',className,...props}:React.ComponentPropsWithoutRef<typeof MenuPrimitive.Content>){
+ return <MenuPrimitive.Portal><MenuPrimitive.Content align={align} sideOffset={6} className={cn('ui-menu',className)} {...props}>{children}</MenuPrimitive.Content></MenuPrimitive.Portal>;
 }
 export function DropdownMenuItem({className,...props}:React.ComponentPropsWithoutRef<typeof MenuPrimitive.Item>){
  return <MenuPrimitive.Item className={cn('ui-menu-item',className)} {...props}/>;

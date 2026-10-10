@@ -1,8 +1,9 @@
-// node render.mjs <project> check | stills | video [blur] [workers] | voice
+// node render.mjs <project> check | stills | video [blur] [workers] | voice | frame <seconds>
 //   reads  projects/<project>/source/index.html (+ brand/music.*, brand/sfx/, sfx/)
 //   writes projects/<project>/output/stills/*.png and output/<project>.mp4
 //   blur    = motion-blur subframes per frame (default 8, 1 = off for a quick draft)
 //   workers = Chrome instances capturing in parallel (default: fits this machine's cores and RAM)
+//   frame   = one PNG at <seconds> → output/frames/frame-MM-SS-CC.png; prints that path last (Studio sends it to Claude)
 import { chromium } from 'playwright';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
@@ -11,20 +12,22 @@ import { projectName, positiveInt, timeline, command, probeVideo, promoteFile } 
 import { encodeFrames } from './lib/render-video.mjs';
 import { mixToAac } from './lib/audio-pcm.mjs';
 import { acquireProjectLock, cleanOrphanedStages } from './lib/recovery.mjs';
+import { writeRenderStatus } from './lib/render-status.mjs';
 import { cpus, freemem } from 'node:os';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 
 process.chdir(process.env.VIDEO_STUDIO_ROOT || fileURLToPath(new URL('.', import.meta.url)));   // project workspace may live outside packaged Electron
 const [projectArg, mode = 'video', blurArg, workersArg] = process.argv.slice(2);
 const project = projectName(projectArg);
-if (!['check', 'stills', 'video', 'voice', 'audio'].includes(mode)) throw new Error('Unknown mode: ' + mode);
+if (!['check', 'stills', 'video', 'voice', 'audio', 'frame'].includes(mode)) throw new Error('Unknown mode: ' + mode);
+if (mode === 'frame' && !/^\d+(\.\d+)?$/.test(blurArg ?? '')) throw new Error('frame needs a time in seconds, e.g. frame 8.9');
 const src = `projects/${project}/source/index.html`, out = `projects/${project}/output`, brand = `projects/${project}/brand`;
 if (!project || !existsSync(src)) {
-  console.error(`usage: node render.mjs <project> [check|stills|video|voice] [blur] [workers]\nprojects: ${readdirSync('projects').join(', ')}`);
+  console.error(`usage: node render.mjs <project> [check|stills|video|voice] [blur] [workers] | frame <seconds>\nprojects: ${readdirSync('projects').join(', ')}`);
   process.exit(1);
 }
 const FPS = 30;
-const BLUR = positiveInt(blurArg, 'motion blur samples', 8, 64);
+const BLUR = mode === 'frame' ? 1 : positiveInt(blurArg, 'motion blur samples', 8, 64);
 const SHUTTER = 0.5;            // fraction of a frame the "shutter" stays open (0.5 = film-like 180°)
 const MUSIC_VOLUME = 0.55;      // music sits under the sound effects
 const SFX_UNDER_VOICE = 0.5;    // effects step back when there is a voiceover
@@ -63,6 +66,15 @@ process.once('SIGINT', () => controller.abort(new Error('SIGINT received')));
 process.once('SIGTERM', () => controller.abort(new Error('SIGTERM received')));
 let DUR, STILLS;
 const workers = [];
+// output/.render-status.json lets Studio (and Claude) follow renders started anywhere. Best effort: never fails a render.
+const status = mode === 'frame' ? null : { mode, args: process.argv.slice(4), pid: process.pid, startedAt: new Date().toISOString(),
+  frames: null, state: 'running', error: null, output: mode === 'video' ? `output/${project}.mp4` : mode === 'stills' ? 'output/stills' : null };
+const report = (patch) => {
+  if (!status) return;
+  Object.assign(status, patch);
+  return writeRenderStatus(out, status).catch((e) => console.warn('render status: ' + e.message));
+};
+if (status) { mkdirSync(out, { recursive: true }); await report({}); }
 const releaseProjectLock = mode === 'video'
   ? (mkdirSync(out, { recursive: true }), await acquireProjectLock(out, project))
   : null;
@@ -115,6 +127,14 @@ if (mode === 'check') {
   mkdirSync(`${out}/stills`, { recursive: true });
   for (const t of STILLS) writeFileSync(`${out}/stills/still-${String(t).padStart(2, '0')}s.png`, await shot(workers[0], t));
   console.log(`stills saved to ${out}/stills`);
+} else if (mode === 'frame') {
+  const t = Number(blurArg);
+  if (t > DUR) throw new Error(`frame time ${t}s is past the end of the clip (${DUR}s)`);
+  const c = Math.round(t * 100), pad = (n) => String(n).padStart(2, '0');
+  const file = `${out}/frames/frame-${pad(Math.floor(c / 6000))}-${pad(Math.floor(c / 100) % 60)}-${pad(c % 100)}.png`;
+  mkdirSync(`${out}/frames`, { recursive: true });
+  writeFileSync(file, await shot(workers[0], t));
+  console.log(file);
 } else if (mode === 'audio') {
   mkdirSync(out, { recursive: true });
   const cues = await workers[0].page.evaluate(() => window.SFX || []);
@@ -138,9 +158,15 @@ if (mode === 'check') {
     const audio = await mixToAac({
       cues, brand, duration: DUR, output: audioFile, signal: controller.signal,
     });
+    await report({ frames: { done: 0, total: plan.frameCount } });
+    let reported = 0;
     await encodeFrames({
       workers, frames: plan.frameCount, blur: BLUR, fps: FPS, dest: videoOnly,
       shot, signal: controller.signal,
+      onProgress: (done, total) => {
+        status.frames = { done, total };
+        if (Date.now() - reported > 500) { reported = Date.now(); report({}); }
+      },
     });
     await closeWorkers();
     if (audio.hasAudio) {
@@ -167,6 +193,11 @@ if (mode === 'check') {
       rm(audioFile, { force: true })]);
   }
 }
+  await report(process.exitCode ? { state: 'failed', error: 'layout problems found' }
+    : { state: 'complete', frames: status?.frames && { ...status.frames, done: status.frames.total } });
+} catch (error) {
+  await report({ state: 'failed', error: String(error?.message || error) });
+  throw error;
 } finally {
   try { await closeWorkers(); }
   finally { await releaseProjectLock?.(); }

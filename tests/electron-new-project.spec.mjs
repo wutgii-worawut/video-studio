@@ -15,11 +15,11 @@ try {
  page.on('console',m=>{if(m.type()==='error')console.log('CONSOLE_ERR',m.text());});
  await page.getByTestId('react-studio').waitFor({timeout:25000});
  workspace=await page.evaluate(()=>window.videoStudioDesktop.getWorkspace());
- await page.getByRole('button',{name:'New Project'}).click();
+ await page.locator('.project-button').click();
  await page.getByLabel('Project folder name').fill(name);
  await page.getByLabel('Video title').fill('Packaged Project');
  await page.getByLabel('Duration (seconds)').fill('3');
- await page.getByRole('button',{name:'Create Project'}).click();
+ await page.getByRole('button',{name:'Create & open'}).click();
  await page.locator('iframe[title="Project animation preview"]').waitFor({timeout:15000});
  await page.waitForTimeout(2200);
  console.log('NEW_PROJECT_UI_STATUS',await page.locator('.inline-status').innerText(),await page.locator('.frame-overlay').innerText().catch(()=>''));
@@ -32,8 +32,8 @@ try {
  });
  assert.equal(dimensions.w,1080);assert.equal(dimensions.h,1920);
  assert.ok(Math.abs(dimensions.outer-dimensions.rendered)<5);
- await page.getByRole('button',{name:'Render Tasks'}).click();
- await page.getByRole('button',{name:'Check',exact:true}).last().click();
+ await page.getByRole('navigation',{name:'Pages'}).getByRole('button',{name:'Render',exact:true}).click();
+ await page.getByRole('button',{name:'Run Check layout'}).click();
  await page.waitForFunction(()=>/\[Exit \d+\]/.test(document.querySelector('[data-testid="task-output"]')?.textContent||''),null,{timeout:25000});
  const log=await page.getByTestId('task-output').textContent();
  assert.match(log||'',/layout OK/);

@@ -1,8 +1,10 @@
-import {useShallow} from 'zustand/react/shallow';
-import {useEffect,useState} from 'react';
 // Monaco's main entry registers dozens of languages and LSP features that this
 // workspace never opens. Import the editor API plus only our file types.
 import * as monaco from '../../../node_modules/monaco-editor/esm/vs/editor/editor.api.js';
+// Editor contributions (find, folding, suggest, code lens…) and their services. Monaco otherwise pulls this in lazily
+// with the first language worker, after its services are frozen, so every later editor instance threw
+// "depends on UNKNOWN service". Loading it up front registers them before the first editor is created.
+import '../../../node_modules/monaco-editor/esm/vs/internal/common/workers.js';
 import '../../../node_modules/monaco-editor/esm/vs/languages/definitions/javascript/register.js';
 import '../../../node_modules/monaco-editor/esm/vs/languages/definitions/typescript/register.js';
 import '../../../node_modules/monaco-editor/esm/vs/languages/definitions/html/register.js';
@@ -20,14 +22,9 @@ import CssWorker from '../../../node_modules/monaco-editor/esm/vs/language/css/c
 import HtmlWorker from '../../../node_modules/monaco-editor/esm/vs/language/html/html.worker.js?worker';
 import TypeScriptWorker from '../../../node_modules/monaco-editor/esm/vs/language/typescript/ts.worker.js?worker';
 
+import {useRef} from 'react';
 import {Editor,loader} from '@monaco-editor/react';
-import {AlertCircle,Code2,Save,Undo2} from 'lucide-react';
-import {toast} from 'sonner';
-import {useStudio} from '../lib/state';
-import type {FileEntry} from '../lib/api';
-import {studioApi} from '../lib/api';
-import {Button,Badge} from './ui';
-import {formatSize} from '../lib/utils';
+import {useStudio,type Tab} from '../lib/state';
 // Explicit Vite worker bundle mapping. Default Monaco blob workers fail in packaged Electron.
 (self as typeof self & {MonacoEnvironment?:{getWorker:(id:string,label:string)=>Worker}}).MonacoEnvironment={
  getWorker(_id,label){
@@ -43,52 +40,16 @@ function syntax(name:string){
  const e=name.split('.').at(-1)?.toLowerCase()||'';
  return ({md:'markdown',mdx:'markdown',js:'javascript',mjs:'javascript',ts:'typescript',tsx:'typescript',json:'json',html:'html',css:'css',yml:'yaml',yaml:'yaml',xml:'xml'} as Record<string,string>)[e]||'plaintext';
 }
-export function CodeInspector({file}:{file:FileEntry}){
- const {project,category}=useStudio(useShallow(s=>({project:s.project,category:s.category})));
- const [content,setContent]=useState(''),[original,setOriginal]=useState(''),[etag,setEtag]=useState(''),[editable,setEditable]=useState(false);
- const [busy,setBusy]=useState(false),[error,setError]=useState('');
- useEffect(()=>{
-  let dead=false;setBusy(true);setError('');
-  const query=new URLSearchParams({project,group:category,path:file.path});
-  (async()=>{
-   try{
-    const r=await fetch('/api/studio/source?'+query);
-    if(r.ok){
-     const j=await r.json();
-     if(!dead){setContent(j.text);setOriginal(j.text);setEtag(j.etag);setEditable(true);}
-    }else{
-     const j=await studioApi.text(project,category,file);
-     if(!dead){setContent(j.text);setOriginal(j.text);setEditable(false);}
-    }
-   }catch(e){if(!dead)setError((e as Error).message)}
-   finally{if(!dead)setBusy(false)}
-  })();
-  return ()=>{dead=true};
- },[file.path,category,project]);
- const save=async()=>{
-  setBusy(true);
-  try{
-   const path=new URLSearchParams({project,group:category,path:file.path});
-   const r=await fetch('/api/studio/source?'+path,{
-    method:'PUT',headers:{'If-Match':etag,'Content-Type':'text/plain; charset=utf-8'},body:content
-   });
-   const j=await r.json();
-   if(!r.ok)throw Error(j.error||'Unable to save');
-   setOriginal(content);setEtag(j.etag);toast.success('Saved '+file.name+' · Preview can be reloaded to see changes');
-  }catch(e){toast.error((e as Error).message)}
-  finally{setBusy(false)}
- };
- const dirty=original!==content;
- return <div className="code-inspector">
-  <div className="inspector-resource-meta"><Code2 size={16}/><span className="truncate">{file.name}</span><Badge>{editable?'EDITABLE':'READ ONLY'}</Badge></div>
-  <div className="inspector-hint">{file.folder||file.root} · {formatSize(file.size)}</div>
-  {error?<div className="error-state"><AlertCircle size={16}/>{error}</div>:busy&&!original?<div className="skeleton" style={{height:260}}/>:
-  <div className="code-editor" data-testid="monaco-editor"><Editor theme="vs-dark" value={content} onChange={v=>setContent(v||'')} language={syntax(file.name)}
-    options={{readOnly:!editable,minimap:{enabled:false},fontSize:12,lineNumbers:'on',scrollBeyondLastLine:false,wordWrap:'on',automaticLayout:true,padding:{top:12,bottom:12}}} loading={<div className="skeleton" style={{height:200}}/>}/></div>}
-  <div className="inspector-bottom-actions">
-   <span>{dirty?'● Unsaved changes':editable?'Ready to edit':'Source is read-only'}</span>
-   {editable&&<><Button variant="ghost" size="sm" disabled={!dirty||busy} onClick={()=>setContent(original)}><Undo2 size={14}/> Revert</Button>
-    <Button size="sm" disabled={!dirty||busy} onClick={()=>void save()}><Save size={14}/> Save</Button></>}
-  </div>
- </div>;
+// Monaco for the active Code tab. Text lives in the store so switching tabs or pages keeps unsaved edits.
+export function MonacoPane({tab,onLine}:{tab:Tab;onLine?:(line:number)=>void}){
+ const editTab=useStudio(s=>s.editTab),saveTab=useStudio(s=>s.saveTab);
+ const active=useRef(tab.key);active.current=tab.key; // one editor instance swaps models per tab
+ return <div className="code-editor" data-testid="monaco-editor"><Editor theme="vs-dark" path={tab.key} value={tab.content} language={syntax(tab.file.name)}
+  onChange={v=>{if(tab.editable)editTab(tab.key,v||'')}}
+  onMount={(editor,api)=>{
+   editor.addCommand(api.KeyMod.CtrlCmd|api.KeyCode.KeyS,()=>void saveTab(active.current));
+   editor.onDidChangeCursorPosition(e=>onLine?.(e.position.lineNumber));
+  }}
+  options={{readOnly:!tab.editable,minimap:{enabled:false},fontSize:13,fontFamily:'"IBM Plex Mono",Consolas,monospace',lineNumbers:'on',scrollBeyondLastLine:false,wordWrap:'on',automaticLayout:true,padding:{top:12,bottom:12}}}
+  loading={<div className="skeleton" style={{height:200}}/>}/></div>;
 }

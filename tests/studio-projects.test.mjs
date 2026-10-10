@@ -65,7 +65,7 @@ test('created blank project passes real Playwright/FFmpeg render workflow', {tim
   assert.ok((await stat(file)).size>5000);
  }finally{await rm(folder,{recursive:true,force:true});await shutdown(server);}
 });
-test('React New Project dialog creates playable project and frame fits full 1080x1920', {timeout:45000},async()=>{
+test('React New Project form creates playable project and frame fits full 1080x1920', {timeout:45000},async()=>{
  const {server,url}=await open(),name='test-ui-'+suffix();
  const folder=join(ROOT,'projects',name);
  let browser;
@@ -76,15 +76,17 @@ test('React New Project dialog creates playable project and frame fits full 1080
   page.on('dialog',d=>{native.push(d.type());d.dismiss()});
   page.on('pageerror',e=>errors.push(e.message));
   await page.goto(url+'/');
-  await page.getByRole('button',{name:'New Project'}).click();
-  await page.getByRole('dialog').waitFor();
+  await page.locator('.project-button').click();
+  await page.getByRole('heading',{name:'New project'}).waitFor();
   await page.getByLabel('Project folder name').fill(name);
   await page.getByLabel('Video title').fill('ทดสอบ Video Studio');
   await page.getByLabel('Duration (seconds)').fill('6');
   await page.getByRole('button',{name:/3-scene starter/}).click();
-  await page.getByRole('button',{name:'Create Project'}).click();
+  await page.getByRole('button',{name:'Create & open'}).click();
   await page.waitForFunction(project=>document.body.textContent?.includes(project),name,{timeout:10000});
   await page.locator('iframe[title="Project animation preview"]').waitFor();
+  await page.locator('.inline-status.connected').waitFor({timeout:12000});
+  await page.getByRole('radio',{name:'Preview-first'}).click();
   await page.locator('.inline-status.connected').waitFor({timeout:12000});
   const measure=async()=>page.locator('.video-frame').evaluate(holder=>{
     const iframe=holder.querySelector('iframe');const a=holder.getBoundingClientRect(),b=iframe.getBoundingClientRect();
@@ -101,10 +103,8 @@ test('React New Project dialog creates playable project and frame fits full 1080
   assert.ok(Math.abs(expanded.actualWidth-expanded.frameWidth)<4,JSON.stringify(expanded));
   assert.ok(Math.abs(expanded.actualHeight-expanded.frameHeight)<4,JSON.stringify(expanded));
   await page.getByRole('button',{name:'Restore workspace'}).click();
-  await page.getByRole('button',{name:'Source',exact:true}).click();
-  await page.locator('button.file-row').filter({hasText:'index.html'}).first().click();
-  await page.getByTestId('html-file-inspector').waitFor();
-  await page.getByRole('button',{name:'Code',exact:true}).last().click();
+  await page.getByRole('navigation',{name:'Pages'}).getByRole('button',{name:'Code',exact:true}).click();
+  await page.locator('button.tree-row').filter({hasText:'index.html'}).first().click();
   await page.getByTestId('monaco-editor').waitFor();
   await page.waitForTimeout(850);
   assert.deepEqual(errors,[],'Monaco workers and Source Inspector must not throw page errors');

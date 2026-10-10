@@ -1,9 +1,11 @@
-export interface Project {name:string;hasVideo:boolean}
+export interface Project {name:string;hasVideo:boolean;videoUpdatedAt?:number|null;sourceUpdatedAt?:number|null}
 export interface FileEntry {root:string;path:string;name:string;folder:string;size:number;type:'text'|'document'|'image'|'audio'|'video'|'binary';previewable:boolean;metadataOnly?:boolean}
 export interface DeletedEntry {id:string;project:string;location:string;folder:string;name:string;size:number;deletedAt:string}
 export interface Scene {id:string;label:string;start:number;end:number}
 export interface Clip {id:string;start:number;duration:number;track:number;component:string;props:Record<string,unknown>}
 export interface Composition {id:string;fps:number;width:number;height:number;duration:number;clips:Clip[]}
+// output/.render-status.json as served by /api/studio/render-status (written by render.mjs).
+export interface RenderStatus {state:'none'|'running'|'complete'|'failed';mode?:string;args?:string[];pid?:number;startedAt?:string;updatedAt?:string;frames?:{done:number;total:number}|null;error?:string|null;output?:string|null}
 export interface Task {id:string;project:string;command:string;status:'running'|'complete'|'failed';output:string;code:number|null}
 async function response<T>(url:string, options?:RequestInit):Promise<T>{const r=await fetch(url,options);if(!r.ok){let message='HTTP '+r.status;try{const b=await r.json();message=b.error||message}catch{}throw Error(message);}return r.json();}
 const qs=(values:Record<string,string>)=>new URLSearchParams(values).toString();

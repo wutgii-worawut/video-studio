@@ -22,24 +22,20 @@ try{
  const projectButton=page.getByRole('button',{name:/sword-of-coming-s2|composition-demo|skillz-promo/}).first();
  if(!(await projectButton.innerText()).includes('composition-demo')){
   await projectButton.click();
-  await page.getByRole('menuitem',{name:/composition-demo/}).click();
-  await page.getByRole('button',{name:'Switch project'}).click();
+  await page.getByRole('button',{name:'Open composition-demo'}).click();
  }
+ await page.getByRole('navigation',{name:'Pages'}).getByRole('button',{name:'Library',exact:true}).click();
  await page.getByRole('button',{name:'Hide terminal panel'}).click();
  await page.locator('.master-panels.terminal-hidden-workspace').waitFor();
  assert.equal(await page.locator('.studio-console').isVisible(),false);
  await page.getByRole('button',{name:'Show terminal panel'}).click();
  await page.locator('.studio-console').waitFor({state:'visible'});
- await page.getByRole('button',{name:'Expand inspector'}).click();
- await page.getByText('PROJECT EXPLORER',{exact:true}).waitFor();
- await page.getByRole('button',{name:'Assets',exact:true}).click();
- await page.locator('button.file-row').filter({hasText:name}).click();
- await page.waitForFunction(()=>{const img=document.querySelector('.inspect-image');return img?.complete&&img.naturalWidth===36;},null,{timeout:15000});
+ await page.getByRole('button',{name:/^Source images/}).click();
+ await page.locator('button.media-card').filter({hasText:name}).click();
+ await page.waitForFunction(()=>{const img=document.querySelector('.library-detail img');return img?.complete&&img.naturalWidth===36;},null,{timeout:15000});
  console.log('PACKAGED_IMAGE_PREVIEW_OK',name);
- await page.getByRole('button',{name:'Source',exact:true}).click();
- await page.locator('button.file-row').filter({hasText:'index.html'}).first().click();
- await page.getByTestId('html-file-inspector').waitFor();
- await page.getByRole('button',{name:'Code',exact:true}).last().click();
+ await page.getByRole('navigation',{name:'Pages'}).getByRole('button',{name:'Code',exact:true}).click();
+ await page.locator('button.tree-row').filter({hasText:'index.html'}).first().click();
  await page.getByTestId('monaco-editor').waitFor({timeout:15000});
  await page.locator('.monaco-editor').first().waitFor({timeout:15000});
  await page.waitForTimeout(600);

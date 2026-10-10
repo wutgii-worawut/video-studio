@@ -1,1 +1,4 @@
 import {clsx,type ClassValue} from 'clsx';import {twMerge} from 'tailwind-merge';export function cn(...v:ClassValue[]){return twMerge(clsx(v));}export const formatTime=(t:number)=>{const seconds=Math.max(0,t);return String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(Math.floor(seconds%60)).padStart(2,'0')+'.'+String(Math.floor((seconds%1)*1000)).padStart(3,'0');};export const formatSize=(n:number)=>n>1048576?(n/1048576).toFixed(1)+' MB':n>1024?(n/1024).toFixed(0)+' KB':n+' B';
+
+// Global shortcuts must never steal keys from the terminal, Monaco or form fields.
+export const typing=(target:EventTarget|null)=>target instanceof HTMLElement&&(target.matches('input,textarea,select,[contenteditable="true"]')||Boolean(target.closest('.xterm,.monaco-editor')));

@@ -19,11 +19,10 @@ async function stop(server){server.closeAllConnections();await new Promise(r=>se
 async function chooseDemo(page){
  await page.goto('/');
  await page.getByTestId('react-studio').waitFor({timeout:15000});
- await page.getByRole('button',{name:/sword-of-coming-s2/}).first().click();
- await page.getByRole('menuitem',{name:/composition-demo/}).click();
- await page.getByRole('button',{name:'Switch project'}).click();
+ await page.locator('.project-button').click();
+ await page.getByRole('button',{name:'Open composition-demo'}).click();
 }
-test('Terminal hide removes entire panel and Inspector expand preserves file browsing', {timeout:45000},async()=>{
+test('Director layouts share one terminal; hiding it keeps the Preview; Code page browses files', {timeout:45000},async()=>{
  const {server,url}=await serve();let browser;
  try{
   browser=await chromium.launch({channel:'chrome',headless:true});
@@ -31,6 +30,10 @@ test('Terminal hide removes entire panel and Inspector expand preserves file bro
   const errors=[];page.on('pageerror',err=>errors.push(err.message));
   await page.goto(url+'/');
   await page.getByTestId('react-studio').waitFor({timeout:15000});
+  await page.locator('.director.terminal-first .studio-console').waitFor();
+  assert.equal(await page.getByRole('button',{name:'Terminal',exact:true}).isDisabled(),true,'Terminal-first always shows the terminal');
+  await page.getByRole('radio',{name:'Preview-first'}).click();
+  await page.locator('.director.preview-first').waitFor();
   const height=await page.locator('.master-panels').boundingBox();
   assert.ok(height?.height);
   await page.locator('iframe[title="Project animation preview"]').waitFor();
@@ -38,27 +41,27 @@ test('Terminal hide removes entire panel and Inspector expand preserves file bro
   await page.getByRole('button',{name:'Hide terminal panel'}).click();
   await page.locator('.master-panels.terminal-hidden-workspace').waitFor();
   assert.equal(await page.locator('.studio-console').isVisible(),false,'PTY remains mounted while entire panel is hidden');
-  assert.equal(await page.locator('.resize-handle.horizontal:visible').count(),1); // timeline only; terminal separator hidden
+  assert.equal(await page.locator('.terminal-handle:visible').count(),0);
   const area=await page.locator('.master-panels.terminal-hidden-workspace').boundingBox();
   assert.ok(area.height>height.height*.90);
   await page.getByRole('button',{name:'Show terminal panel'}).click();
   await page.locator('.studio-console').waitFor({state:'visible'});
   assert.equal(await page.locator('iframe[title="Project animation preview"]').getAttribute('data-persistence'),'kept','Hide/show must not remount the Live Preview');
-  await page.getByRole('button',{name:'Expand inspector'}).click();
-  await page.locator('.inspector-focused').waitFor();
-  await page.getByText('PROJECT EXPLORER',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Expand preview'}).click();
+  assert.equal(await page.locator('.studio-console').isVisible(),false,'Focus hides the terminal');
+  await page.getByRole('button',{name:'Restore workspace'}).click();
+  await page.locator('.studio-console').waitFor({state:'visible'});
+  await page.getByRole('navigation',{name:'Pages'}).getByRole('button',{name:'Code',exact:true}).click();
   assert.equal(await page.locator('.preview-pane').count(),0);
-  await page.getByRole('button',{name:'Source',exact:true}).click();
-  await page.locator('button.file-row').filter({hasText:'index.html'}).first().click();
-  await page.getByTestId('html-file-inspector').waitFor();
-  await page.getByRole('button',{name:'Code',exact:true}).last().click();
+  await page.locator('button.tree-row').filter({hasText:'index.html'}).first().click();
   await page.getByTestId('monaco-editor').waitFor();
-  await page.getByRole('button',{name:'Restore inspector'}).click();
+  assert.equal(await page.locator('iframe[title="Code live preview"]').getAttribute('sandbox'),'allow-scripts');
+  await page.getByRole('navigation',{name:'Pages'}).getByRole('button',{name:'Director',exact:true}).click();
   await page.locator('.preview-pane').waitFor();
   assert.deepEqual(errors,[]);
  }finally{await browser?.close();await stop(server);}
 });
-test('Inspector supports HTML visual/code and switching images without restoring Preview', {timeout:35000},async()=>{
+test('Library previews images (PNG and SVG) and Code opens Source with Monaco', {timeout:35000},async()=>{
  const {server,url}=await serve();let browser;
  const filename='inspector-'+name(),folder=join(ROOT,'projects',project,'source','img');
  await mkdir(folder,{recursive:true});
@@ -71,24 +74,17 @@ test('Inspector supports HTML visual/code and switching images without restoring
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(url+'/');
   await page.getByTestId('react-studio').waitFor();
-  await page.getByRole('button',{name:/sword-of-coming-s2/}).first().click();
-  await page.getByRole('menuitem',{name:/composition-demo/}).click();
-  await page.getByRole('button',{name:'Switch project'}).click();
-  await page.getByRole('button',{name:'Expand inspector'}).click();
-  await page.getByRole('button',{name:'Assets',exact:true}).click();
-  await page.locator('button.file-row').filter({hasText:filename+'.png'}).click();
-  const image=page.locator('.inspect-image');
-  await image.waitFor();
-  await page.waitForFunction(()=>{const img=document.querySelector('.inspect-image');return img?.complete&&img.naturalWidth>0});
-  await page.locator('button.file-row').filter({hasText:filename+'.svg'}).click();
-  await page.waitForFunction(()=>{const img=document.querySelector('.inspect-image');return img?.complete&&img.naturalWidth>0});
-  assert.equal(await page.locator('.inspector-focused .explorer').isVisible(),true);
-  await page.getByRole('button',{name:'Source',exact:true}).click();
-  await page.locator('button.file-row').filter({hasText:'index.html'}).first().click();
-  const iframe=page.locator('iframe[title="Visual HTML preview index.html"]');
-  await iframe.waitFor();
-  assert.equal(await iframe.getAttribute('sandbox'),'allow-scripts');
-  await page.getByRole('button',{name:'Code',exact:true}).last().click();
+  await page.locator('.project-button').click();
+  await page.getByRole('button',{name:'Open composition-demo'}).click();
+  await page.getByRole('navigation',{name:'Pages'}).getByRole('button',{name:'Library',exact:true}).click();
+  await page.locator('button.media-card').filter({hasText:filename+'.png'}).click();
+  const loaded=()=>page.waitForFunction(()=>{const img=document.querySelector('.library-detail img');return img?.complete&&img.naturalWidth>0});
+  await loaded();
+  await page.locator('button.media-card').filter({hasText:filename+'.svg'}).click();
+  await page.waitForFunction(name=>document.querySelector('.library-detail img')?.getAttribute('alt')===name,filename+'.svg');
+  await loaded();
+  await page.getByRole('navigation',{name:'Pages'}).getByRole('button',{name:'Code',exact:true}).click();
+  await page.locator('button.tree-row').filter({hasText:'index.html'}).first().click();
   await page.getByTestId('monaco-editor').waitFor();
   assert.deepEqual(errors,[]);
  }finally{
@@ -139,21 +135,16 @@ test('Extra image extensions are classified and TIFF is converted for browser pr
  }
 });
 
-test('Phone Inspector focus keeps Explorer selectable without overlaying it', {timeout:22000},async()=>{
+test('Phone Code page opens a file without horizontal overflow', {timeout:22000},async()=>{
  const {server,url}=await serve();let browser;
  try{
   browser=await chromium.launch({channel:'chrome',headless:true});
   const page=await browser.newPage({viewport:{width:390,height:844}});
   await page.goto(url+'/');
   await page.getByTestId('react-studio').waitFor();
-  await page.getByRole('button',{name:'Open Inspector'}).click();
-  await page.getByRole('button',{name:'Expand inspector'}).click();
-  await page.locator('.compact-inspector-workspace').waitFor();
-  assert.equal(await page.locator('.compact-inspector-explorer').isVisible(),true);
-  assert.equal(await page.locator('.compact-inspector-details').isVisible(),true);
-  await page.locator('.compact-inspector-explorer').getByRole('button',{name:'Source',exact:true}).click();
-  await page.locator('.compact-inspector-explorer button.file-row').filter({hasText:'index.html'}).first().click();
-  await page.getByTestId('html-file-inspector').waitFor();
+  await page.getByRole('navigation',{name:'Pages'}).getByRole('button',{name:'Code',exact:true}).click();
+  await page.locator('button.tree-row').filter({hasText:'index.html'}).first().click();
+  await page.getByTestId('monaco-editor').waitFor();
   const width=await page.evaluate(()=>document.documentElement.scrollWidth);
   assert.ok(width<=390+2,width);
  }finally{await browser?.close();await stop(server);}

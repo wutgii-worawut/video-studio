@@ -46,7 +46,8 @@ node render.mjs <name> stills
 ~~~
 
 - Require a successful `layout OK` with exit code 0, then **look at** every generated still in `projects/<name>/output/stills/` and inspect additional in-between transition frames. Correct typography, crop, movement, images and timing; redo check/stills after each change.
-- Studio UI: `npm run electron` for desktop, or `npm run studio` for React web on `http://127.0.0.1:4183`. Its terminal requires the launch access code; `npm run studio:safe` provides task-only mode on port 4177. Explorer/Inspector can preview HTML and use Monaco code editing; Save/Revert and Composition Save have their own permissions/ETag checks.
+- Studio UI: `npm run electron` for desktop, or `npm run studio` for React web on `http://127.0.0.1:4183`. Its terminal requires the launch access code; `npm run studio:safe` provides task-only mode on port 4177. Pages: Director (preview + scenes), Code (Monaco tabs, Save/Revert with ETag), Library (media/docs, Trash), Render (tasks, log, outputs). Studio reloads its preview by itself when you edit `source/`.
+- When the user inserts `@projects/<name>/output/frames/frame-MM-SS-CC.png` from Studio, that PNG is the exact frame they are looking at (`node render.mjs <name> frame <seconds>` makes the same file). Read it before answering.
 - Preview shows **current HTML frames**, but soundtrack playback uses the **most recently rendered MP4**. Changing voice/music/SFX/timing may require a new draft render before preview audio matches the edit.
 - Show the user the stills and relevant findings, then **wait for approval** before the final render. Repeat the cycle when feedback arrives.
 
@@ -56,6 +57,8 @@ node render.mjs <name> stills
 node render.mjs <name> video 1 2  # quick draft: 1 sample/frame, 2 workers
 node render.mjs <name> video 8 2  # final: 8 motion-blur samples/frame, 2 workers
 ~~~
+
+**Before starting a render, and to follow one, read `projects/<name>/output/.render-status.json`** (written by `render.mjs` for check, stills, audio and video; Studio shows the same file). Fields: `state` (`running` | `complete` | `failed`), `mode`, `args`, `pid`, `startedAt`, `updatedAt`, `frames` (`{done,total}` for video), `error`, `output`. If `state` is `running`, a render is already in progress — possibly one the user started from Studio — so wait instead of starting another; if its `pid` is no longer alive, it died without finishing. After your own render, `complete` plus FFprobe below confirms the result; `failed` carries the error message.
 
 Omitting blur/workers uses the engine's validated defaults. Use only resource limits appropriate to the machine. The renderer acquires a per-project lock, stages files, verifies via FFprobe, then publishes `projects/<name>/output/<name>.mp4` without prematurely replacing the prior MP4. Avoid concurrent renders of the same project.
 

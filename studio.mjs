@@ -8,6 +8,9 @@ import { fileURLToPath } from 'node:url';
 import { projectName } from './lib/production.mjs';
 import { validateComposition } from './lib/composition.mjs';
 import { createHash } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { readRenderStatus } from './lib/render-status.mjs';
+import { watchProject } from './lib/studio-watch.mjs';
 import { isProcessAlive } from './lib/recovery.mjs';
 import { workspaceEntries, readWorkspaceText, workspaceMediaFile, workspaceDocumentFile, workspaceEditableText } from './lib/studio-workspace.mjs';
 import { createStudioTasks } from './lib/studio-tasks.mjs';
@@ -96,10 +99,23 @@ export async function projects() {
     try { projectName(entry.name); } catch { continue; }
     const source = join(ROOT, 'projects', entry.name, 'source', 'index.html');
     if (!(await stat(source).catch(() => null))) continue;
-    const video = join(ROOT, 'projects', entry.name, 'output', entry.name + '.mp4');
-    result.push({ name: entry.name, hasVideo: Boolean(await stat(video).catch(() => null)) });
+    const video = await stat(join(ROOT, 'projects', entry.name, 'output', entry.name + '.mp4')).catch(() => null);
+    result.push({ name: entry.name, hasVideo: Boolean(video), videoUpdatedAt: video ? video.mtimeMs : null,
+      sourceUpdatedAt: await newestFile(join(ROOT, 'projects', entry.name, 'source'), join(ROOT, 'projects', entry.name, 'brand')) });
   }
   return result;
+}
+// Latest mtime of the top-level files that feed a render (source/ and brand/), so the UI can tell the MP4 is stale.
+async function newestFile(...folders) {
+  let newest = 0;
+  for (const folder of folders) {
+    for (const item of await readdir(folder, { withFileTypes: true }).catch(() => [])) {
+      if (!item.isFile()) continue;
+      const info = await stat(join(folder, item.name)).catch(() => null);
+      if (info && info.mtimeMs > newest) newest = info.mtimeMs;
+    }
+  }
+  return newest || null;
 }
 
 async function compositionApi(req, res, project, pathname) {
@@ -205,6 +221,48 @@ export function createStudioServer(options={}) {
     if (!/^((127\.0\.0\.1)|(localhost)):\d{2,5}$/.test(host))
       throw new Error('Studio API only accepts local Host headers');
     if (req.headers.origin!=='http://'+host)throw new Error('Origin rejected');
+  }
+  // Server-sent change events per open Studio window (spec 8C). Capped so a leaking client can't exhaust file watchers.
+  const eventStreams=new Set();
+  function streamEvents(req,res,project){
+    projectName(project);
+    if(eventStreams.size>=8)return sendJson(res,{error:'Too many event streams'},429);
+    res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+    res.write(': connected\n\n');
+    const close=watchProject(ROOT,project,event=>res.write('data: '+JSON.stringify(event)+'\n\n'));
+    const ping=setInterval(()=>res.write(': ping\n\n'),25_000);
+    const entry={end:()=>res.end()};eventStreams.add(entry);
+    req.on('close',()=>{clearInterval(ping);close();eventStreams.delete(entry);});
+  }
+  // One frame capture at a time: each launches Chrome via render.mjs (spec 8A).
+  let capturing=false;
+  async function captureFrame(project,time){
+    projectName(project);
+    if(typeof time!=='number'||!Number.isFinite(time)||time<0)return [{error:'time must be a number of seconds >= 0'},400];
+    if(!(await stat(join(ROOT,'projects',project,'source','index.html')).catch(()=>null)))return [{error:'Project not found'},404];
+    const lock=await readFile(join(ROOT,'projects',project,'output','.'+project+'.render.lock'),'utf8').catch(()=>null);
+    if(lock){try{if(isProcessAlive(JSON.parse(lock).pid))return [{error:'Render in progress'},409]}catch{}}
+    if(capturing)return [{error:'A frame capture is already running'},409];
+    capturing=true;
+    try{
+      const child=spawn(process.execPath,[join(ROOT,'render.mjs'),project,'frame',String(time)],{cwd:ROOT,shell:false,windowsHide:true,
+        stdio:['ignore','pipe','pipe'],env:{...process.env,NO_COLOR:'1',...(process.versions.electron?{ELECTRON_RUN_AS_NODE:'1'}:{})}});
+      let stdout='',stderr='';
+      child.stdout.on('data',b=>{stdout=(stdout+b).slice(-4000)});
+      child.stderr.on('data',b=>{stderr=(stderr+b).slice(-4000)});
+      const timer=setTimeout(()=>{
+        if(process.platform==='win32')spawn('taskkill',['/T','/F','/PID',String(child.pid)],{windowsHide:true,stdio:'ignore'}).on('error',()=>child.kill());
+        else child.kill('SIGKILL');
+      },60_000);
+      const code=await new Promise(resolve=>{child.once('error',()=>resolve(-1));child.once('close',resolve);});
+      clearTimeout(timer);
+      const path=stdout.trim().split(/\r?\n/).at(-1)||'';
+      if(code!==0||!/^projects\/[a-z0-9-]+\/output\/frames\/frame-\d{2}-\d{2}-\d{2}\.png$/.test(path)){
+        const reason=(stderr.match(/Error: ([^\n]+)/)||[])[1]||'Frame capture failed (exit '+code+')';
+        return [{error:reason},422];
+      }
+      return [{path},200];
+    }finally{capturing=false;}
   }
   const server=http.createServer(async (req, res) => {
     try {
@@ -365,6 +423,15 @@ export function createStudioServer(options={}) {
         studioMedia=await workspaceMediaFile(ROOT,parsedUrl.searchParams.get('project'),
           parsedUrl.searchParams.get('group'),parsedUrl.searchParams.get('path'));
       }
+      if (pathname==='/api/studio/events' && req.method==='GET')return streamEvents(req,res,parsedUrl.searchParams.get('project'));
+      if (pathname==='/api/studio/render-status' && req.method==='GET')
+        return sendJson(res,await readRenderStatus(ROOT,parsedUrl.searchParams.get('project')));
+      if (pathname==='/api/studio/frame' && req.method==='POST'){
+        requireStudioOrigin(req);
+        const body=await jsonPost(req);
+        const [result,code]=await captureFrame(body.project,body.time);
+        return sendJson(res,result,code);
+      }
       if (pathname==='/api/studio/task' && req.method==='POST'){
         requireStudioOrigin(req);
         const body=await jsonPost(req);
@@ -480,6 +547,7 @@ export function createStudioServer(options={}) {
   });
   const terminal=attachLocalTerminal(server,{root:ROOT,enabled:Boolean(options.terminal)});
   server.terminalAccessCode=terminal.secret;
+  server.on('close',()=>{for(const stream of eventStreams)stream.end();});
   return server;
 }
 

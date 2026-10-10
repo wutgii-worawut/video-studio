@@ -10,7 +10,7 @@ try{
  await win.getByTestId('react-studio').waitFor({timeout:15000});
  console.log('ELECTRON_APP_LOADED',await win.title());
  console.log('URL',win.url());
- await win.getByText('TERMINAL',{exact:true}).waitFor();
+ await win.getByRole('region',{name:'Integrated terminal'}).waitFor();
  const desktop=await win.evaluate(()=>({
   platform:window.videoStudioDesktop?.platform,
   hasNode:typeof window.require!=='undefined',
