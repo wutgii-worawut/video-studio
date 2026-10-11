@@ -26,6 +26,8 @@ Project: `$ARGUMENTS` (first word is the existing/new project name; the rest is 
 - Use the brief and verified brand facts to outline scenes, copy and timing. A default 15s promo may progress from problem (0–3s) to benefits (3–10s) to a CTA (10–15s), but follow the requested duration/style.
 - Choose motion/effects from `lib/fx.js` compatible with the style. Animate text entrances, transitions, highlights, camera movement, SVG, etc. Check that important text fits the TikTok/Reels safe zone and that SFX emphasize meaningful changes.
 - Media belongs in `source/img/`, `brand/` and `brand/sfx/`. Video Studio's Explorer can import, rename, duplicate, move to Trash and restore supported assets, but **uploading does not insert an asset into a scene**, and renaming can break HTML/JSON references. Keep assets referenced by source in sync.
+- Fonts load offline from the shared `fonts/` folder: `<link rel="stylesheet" href="../../../fonts/<name>.css">` (mali, ma-shan-zheng, kanit, dela-gothic-one, rye, prompt, jetbrains-mono). Don't link Google Fonts or another CDN; a new font needs the user's OK to download (OFL from @fontsource, woff2 + LICENSE into `fonts/`).
+- Browser libraries are local too: three.js 0.170.0 (+ RoundedBoxGeometry) is `<script src="../../../libs/three/three-0.170.0.js">` → `const THREE = window.THREE;` (not an importmap/CDN; `file://` renders block local ES modules). Nothing updates `libs/` automatically; a new version or addon is a manual rebuild with the user's OK — see `libs/three/README.md`.
 - Write source/brand facts carefully; rendered MP4s, stills and temporary audio belong in `output/`. Do not delete existing output or original uploads simply to save space.
 
 ## 4. Voice and sound (if used)

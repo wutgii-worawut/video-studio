@@ -1,4 +1,4 @@
-export interface Project {name:string;hasVideo:boolean;videoUpdatedAt?:number|null;sourceUpdatedAt?:number|null}
+export interface Project {name:string;hasVideo:boolean;hasComposition?:boolean;videoUpdatedAt?:number|null;sourceUpdatedAt?:number|null}
 export interface FileEntry {root:string;path:string;name:string;folder:string;size:number;type:'text'|'document'|'image'|'audio'|'video'|'binary';previewable:boolean;metadataOnly?:boolean}
 export interface DeletedEntry {id:string;project:string;location:string;folder:string;name:string;size:number;deletedAt:string}
 export interface Scene {id:string;label:string;start:number;end:number}

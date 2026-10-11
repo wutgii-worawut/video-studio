@@ -639,14 +639,17 @@ async function fileAction(item,action){
     const body=await res.json();
     if(!res.ok)throw Error(body.error||'File action failed');
     $('asset-message').textContent=action+' '+item.name+' → '+(body.name||'Trash');
-    await loadWorkspaceGroup(group);
+    // The user may have switched tabs while this ran: refresh what is on screen now, never pull them back.
+    if(project===state.project&&(workspace.group===group||workspace.group==='trash'))await loadWorkspaceGroup(workspace.group);
   }catch(e){$('asset-message').textContent=action+' error: '+e.message;}
 }
 async function renameMedia(item){return fileAction(item,'rename');}
 async function loadTrash(){
-  const res=await fetch('/api/studio/files/trash?'+new URLSearchParams({project:state.project}));
+  const request=workspace.request,project=state.project;
+  const res=await fetch('/api/studio/files/trash?'+new URLSearchParams({project}));
   const data=await res.json();
   if(!res.ok)throw Error(data.error||'Cannot list Trash');
+  if(request!==workspace.request||project!==state.project||workspace.group!=='trash')return;
   workspace.trashItems=data.items;
   workspace.entries=[];
   drawFileList();

@@ -3,9 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>mochi monday 3d</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Mali:wght@600;700&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../../../fonts/mali.css">
 <style>
   :root { --paper:#fff8ec; --ink:#2b2b2b; --butter:#ffe08a; --coral:#ff8a7a; }
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -29,9 +27,7 @@
   .z { position:absolute; left:0; top:0; font-weight:700; color:#7aa7d9; opacity:0; }
 </style>
 <script src="../../../lib/fx.js"></script>
-<script type="importmap">{ "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }</script>
+<script src="../../../libs/three/three-0.170.0.js"></script>  <!-- three@0.170.0 + RoundedBoxGeometry, offline; update by hand: libs/three/README.md -->
 </head>
 <body>
 <div id="stage">
@@ -69,8 +65,8 @@
 
 <script type="module">
   // Every frame is a pure function of t (seconds): render(t) poses the 3D world, draws it once, and updates the text layer.
-  import * as THREE from 'three';
-  import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+  const THREE = window.THREE;
+  const { RoundedBoxGeometry } = THREE;
   const $ = (s) => document.querySelector(s);
   const { ease, clamp } = FX;
   const DUR = 15, W = 1080, H = 1920;

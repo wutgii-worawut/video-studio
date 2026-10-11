@@ -62,6 +62,9 @@ export function App(){
   localStorage.setItem('vs-last-project',project);
   window.videoStudioDesktop?.setTitle('Video Studio — '+project);
   let aborted=false;
+  // Legacy HTML projects have no composition.json; skip the request so it doesn't log a 404. Unknown (e.g. just created) → ask.
+  // ponytail: flag comes from the last /api/projects load; a composition.json added later shows after the list refreshes
+  if(useStudio.getState().projects.find(p=>p.name===project)?.hasComposition===false){set({composition:null,etag:''});return;}
   studioApi.composition(project).then(value=>{
    if(aborted)return;
    set({composition:value?.data||null,etag:value?.etag||''});

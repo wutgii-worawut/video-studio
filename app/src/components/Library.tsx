@@ -1,12 +1,16 @@
-import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 import {ArchiveRestore,Check,Play,Plus,RefreshCw,Search,Trash2,Upload} from 'lucide-react';
 import {toast} from 'sonner';
 import {useStudio} from '../lib/state';
 import {studioApi,urlFor,type FileEntry,type DeletedEntry} from '../lib/api';
 import {cn,formatSize,formatTime} from '../lib/utils';
+import {workspacePath,findEntry} from '../lib/paths';
 import {Button,Input,Dialog,DialogContent,DialogTitle,DialogDescription,DialogFooter,AlertDialog,AlertDialogContent,AlertDialogTitle,AlertDialogDescription,AlertDialogCancel,AlertDialogAction} from './ui';
 
+// Lazy so react-markdown stays in its own chunk (shared with the Code page), not the main bundle.
+const MarkdownView=lazy(()=>import('./MarkdownView').then(m=>({default:m.MarkdownView})));
+const isMarkdown=(f:FileEntry)=>f.type==='text'&&/\.mdx?$/i.test(f.name);
 type Location={id:string;label:string;section:string;group:string;keep:(f:FileEntry)=>boolean;importTo?:string;readOnly?:string};
 const isSfx=(f:FileEntry)=>f.folder==='sfx'||f.folder.startsWith('sfx/');
 const LOCATIONS:Location[]=[
@@ -66,6 +70,15 @@ function Waveform({src,size,onDuration}:{src:string;size:number;onDuration?:(d:n
  },[src,size]);
  return <div className="waveform" ref={ref}>{bars?bars.map((b,i)=><span key={i} style={{height:b*100+'%'}}/>):<span className="wave-placeholder">♪</span>}</div>;
 }
+function MarkdownDetail({project,group,file,onOpenDoc}:{project:string;group:string;file:FileEntry;onOpenDoc:(target:string,hash?:string)=>void}){
+ const [text,setText]=useState<string|null>(null),[error,setError]=useState('');
+ useEffect(()=>{let dead=false;setText(null);setError('');
+  studioApi.text(project,group,file).then(r=>{if(!dead)setText(r.text)}).catch(e=>{if(!dead)setError((e as Error).message)});
+  return ()=>{dead=true};},[project,group,file.path]);
+ if(error)return <div className="readonly-box" role="status">{error}</div>;
+ return text===null?<div className="skeleton" style={{height:120}}/>:<Suspense fallback={<div className="skeleton" style={{height:120}}/>}>
+  <MarkdownView compact content={text} from={workspacePath(project,file)} project={project} onOpenDoc={onOpenDoc}/></Suspense>;
+}
 function Thumb({file,src,onBadge}:{file:FileEntry;src:string|null;onBadge:(v:string)=>void}){
  const [failed,setFailed]=useState(false);
  if(!src||failed||!file.previewable)return <div className="thumb-ext">{ext(file.name)}</div>;
@@ -83,7 +96,7 @@ function Card({file,src,selected,onClick}:{file:FileEntry;src:string|null;select
 }
 
 export function LibraryPage(){
- const {project,location,set,openFile,go}=useStudio(useShallow(s=>({project:s.project,location:s.libraryLocation,set:s.set,openFile:s.openFile,go:s.go})));
+ const {project,location,set,openFile,go,setMdMode}=useStudio(useShallow(s=>({project:s.project,location:s.libraryLocation,set:s.set,openFile:s.openFile,go:s.go,setMdMode:s.setMdMode})));
  const [lists,setLists]=useState<Record<string,FileEntry[]>>({}),[trash,setTrash]=useState<DeletedEntry[]>([]);
  const [query,setQuery]=useState(''),[selectedPath,setSelectedPath]=useState(''),[loading,setLoading]=useState(false),[busy,setBusy]=useState(false);
  const [importOpen,setImportOpen]=useState(false),[uploadTo,setUploadTo]=useState('assets'),[staged,setStaged]=useState<File[]>([]);
@@ -136,6 +149,11 @@ export function LibraryPage(){
   try{await studioApi.json('/api/studio/files/restore',{project,id:item.id});toast.success('Restored '+item.name);await reload();}
   catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
  };
+ const openInCode=(group:string,file:FileEntry)=>{if(isMarkdown(file))setMdMode('preview');void openFile(group,file);go('code');};
+ const openDoc=(target:string,hash?:string)=>{const hit=findEntry({documents:lists.documents||[],fx:lists.fx||[]},project,target);
+  if(!hit){toast.error('Not in the Library: '+target);return;}
+  if(hash)set({mdAnchor:{key:hit.group+'|'+hit.file.path,id:hash}});
+  openInCode(hit.group,hit.file);};
  const sections=[...new Set(LOCATIONS.map(l=>l.section))];
  const where=selected&&managed(selected);
  return <div className="library-page" onDragOver={e=>e.preventDefault()} onDrop={onDrop}>
@@ -161,17 +179,18 @@ export function LibraryPage(){
      {!trash.length&&<div className="empty-state"><p>Trash is empty</p><small>Files you move to Trash appear here for recovery.</small></div>}</div>}
   </section>
   <aside className="library-detail" aria-label="File details">{selected&&loc?<>
+   {isMarkdown(selected)?<div className="detail-markdown"><MarkdownDetail key={selected.path} project={project} group={loc.group} file={selected} onOpenDoc={openDoc}/></div>:
    <div className={cn('detail-preview',selected.type)}>{(()=>{const src=srcOf(selected);
     if(!src||!selected.previewable)return <div className="thumb-ext">{ext(selected.name)}</div>;
     if(selected.type==='image')return <DetailImage key={src} src={src} name={selected.name}/>;
     if(selected.type==='video')return <video src={src} controls preload="metadata" aria-label={'Video preview '+selected.name}/>;
     if(selected.type==='audio')return <><Waveform src={src} size={selected.size}/><audio src={src} controls preload="metadata" aria-label={'Audio preview '+selected.name}/></>;
     if(selected.name.toLowerCase().endsWith('.pdf'))return <iframe title={selected.name} src={src}/>;
-    return <div className="thumb-ext">{ext(selected.name)}</div>;})()}</div>
+    return <div className="thumb-ext">{ext(selected.name)}</div>;})()}</div>}
    <strong className="detail-name">{selected.name}</strong>
    <span className="side-note">{selected.folder?selected.root+' / '+selected.folder:selected.root} · {formatSize(selected.size)}</span>
    {(()=>{const src=srcOf(selected);return src&&<a className="side-link" href={selected.type==='image'?src+'&download=1':src} download={selected.name}>Open / download original</a>})()}
-   {selected.type==='text'&&<Button size="sm" variant="outline" onClick={()=>{void openFile(loc.group,selected);go('code')}}>Open in Code</Button>}
+   {selected.type==='text'&&<Button size="sm" variant="outline" onClick={()=>openInCode(loc.group,selected)}>Open in Code</Button>}
    {where?<div className="detail-actions">
     <label className="form-label" htmlFor="library-name">Name</label>
     <div className="inline-form"><Input id="library-name" value={renameTo} onChange={e=>setRenameTo(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&renameTo.trim()&&renameTo!==selected.name)void act('rename',selected)}}/>

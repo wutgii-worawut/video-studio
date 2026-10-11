@@ -4,6 +4,7 @@ import type {Project,FileEntry,Scene,Composition,RenderStatus} from './api';
 import {studioApi} from './api';
 import {relPath} from './paths';
 export type SessionKind='claude'|'codex'|'powershell';
+export type MdMode='source'|'split'|'preview';
 export type Page='director'|'code'|'library'|'render'|'projects';
 const PAGES:Page[]=['director','code','library','render','projects'];
 const saved=(key:string)=>{try{return localStorage.getItem(key)}catch{return null}};
@@ -17,6 +18,12 @@ interface StudioState {
  page:Page;taskRunning:boolean;queuedTask:string;directorMode:'terminal'|'preview';
  workspaceMode:'normal'|'preview';previewRevision:number;libraryLocation:string;
  tabs:Tab[];activeTab:string;
+ // How .md/.mdx tabs show on the Code page; one setting for every Markdown tab, saved as vs-md-mode.
+ mdMode:MdMode;setMdMode:(mode:MdMode)=>void;
+ // remark-breaks: a single newline becomes <br> (off = standard Markdown). Saved as vs-md-breaks.
+ mdBreaks:boolean;setMdBreaks:(on:boolean)=>void;
+ // Heading to scroll to once the rendered view of tab `key` is shown (link to other.md#heading).
+ mdAnchor:{key:string;id:string}|null;
  // Context for the terminal Insert bar: Monaco cursor line, Library selection, latest task log.
  codeLine:number;libraryFile:FileEntry|null;lastTaskLog:string;
  renderStatus:RenderStatus;terminalKind:SessionKind;
@@ -41,8 +48,10 @@ export const useStudio=create<StudioState>((set,get)=>{
  return {
  projects:[],project:'',scenes:[],duration:15,time:0,playing:false,mute:false,volume:1,composition:null,etag:'',
  page:savedPage(),taskRunning:false,queuedTask:'',directorMode:saved('vs-director-mode')==='preview'?'preview':'terminal',
- workspaceMode:'normal',previewRevision:0,libraryLocation:'images',tabs:[],activeTab:'',codeLine:1,libraryFile:null,lastTaskLog:'',renderStatus:{state:'none'},terminalKind:'powershell',changes:[],lastReload:null,
+ workspaceMode:'normal',previewRevision:0,libraryLocation:'images',tabs:[],activeTab:'',mdMode:(['source','split','preview'] as const).find(m=>m===saved('vs-md-mode'))||'split',mdBreaks:saved('vs-md-breaks')==='true',mdAnchor:null,codeLine:1,libraryFile:null,lastTaskLog:'',renderStatus:{state:'none'},terminalKind:'powershell',changes:[],lastReload:null,
  set:(data)=>set(data),
+ setMdBreaks:(on)=>{try{localStorage.setItem('vs-md-breaks',String(on))}catch{}set({mdBreaks:on});},
+ setMdMode:(mode)=>{try{localStorage.setItem('vs-md-mode',mode)}catch{}set({mdMode:mode});},
  go:(page)=>{try{if(page!=='projects')localStorage.setItem('vs-page',page)}catch{}set({page});},
  switchProject:(name)=>set({project:name,time:0,playing:false,scenes:[],composition:null,etag:'',workspaceMode:'normal',tabs:[],activeTab:'',libraryFile:null,lastTaskLog:'',renderStatus:{state:'none'},changes:[],lastReload:null}),
  // Editable files load through /api/studio/source (ETag); anything else opens read-only as plain text.

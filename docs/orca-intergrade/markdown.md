@@ -1,7 +1,7 @@
 # แผนพัฒนา Markdown viewer แบบ Orca (สลับโหมด Source / Split / Preview)
 
 - เขียนเมื่อ: 2026-10-11 · branch: `upgrade-feature-and-engine`
-- สถานะ: **ยังไม่เริ่มลงมือ** — แผนสำหรับ session ถัดไป (คู่กับ [README.md](README.md) แผน terminal)
+- สถานะ: **ส่วน A ทำแล้ว 2026-10-11** (ยังไม่ commit) — `MarkdownView.tsx`, `lib/markdown.ts`, เทสต์ `tests/react-markdown.test.mjs`; ส่วน B ทำแล้ว 2026-10-11 (ติดตั้ง rehype-highlight@7.0.2, remark-math@6.0.0, rehype-katex@7.0.1 → katex@0.16.47, remark-breaks@4.0.0) (คู่กับ [README.md](README.md) แผน terminal)
 - อ้างอิง: [stablyai/orca](https://github.com/stablyai/orca) (MIT) ตรึงลิงก์ที่ commit [`ca1aac6`](https://github.com/stablyai/orca/tree/ca1aac6af4d83e219f2fa2bd44123e1c3b6eafeb)
 
 ## 0. สิ่งที่ผู้ใช้ตัดสินใจแล้ว
@@ -138,9 +138,59 @@ npm install --save-exact rehype-highlight@7.0.2 remark-math@6.0.0 rehype-katex@7
 | KaTeX ต้องใช้ฟอนต์ offline | import CSS จาก `katex` รุ่นที่ `rehype-katex` ดึงมา, ทดสอบโดยบล็อกเน็ต |
 | ไฟล์ md ใหญ่มาก render ช้า | debounce การ render ใน Split ~150ms; ถ้าเกิน ~1 MB แสดงเตือนและให้เลือก Source (แนว Orca size gate) |
 
-## 8. Checklist เริ่ม session
-- [ ] อ่านเอกสารนี้ + `git status -sb`
-- [ ] baseline `npm run ui:check` / `npm test` (จดผลจริง)
-- [ ] ทำ A1 → A9 พร้อมเทสต์ → รายงาน + ภาพหน้าจอ
-- [ ] เสนอคำสั่งติดตั้งส่วน B → รออนุมัติ → ทำ B + เทสต์
-- [ ] ไม่ commit/push จนผู้ใช้สั่ง
+## 8. Checklist เริ่ม session (อัปเดต 2026-10-11)
+- [x] อ่านเอกสารนี้ + `git status -sb` (clean ที่ `bf0122d`)
+- [x] baseline: `npm run ui:check` exit 0, `npm test` 76/76, `index-*.js` 861.6 kB
+- [x] ทำ A1 → A9 พร้อมเทสต์ (`tests/react-markdown.test.mjs` เทสต์แรก) → รายงาน + ภาพหน้าจอ Split/Preview ตรวจภาษาไทยด้วยตาแล้ว
+- [x] ผู้ใช้อนุมัติส่วน B → `npm view` ยืนยันเวอร์ชัน → ติดตั้ง `--save-exact` → `npm ls unified` ได้รุ่นเดียว (11.0.5), `katex@0.16.47` รุ่นเดียว → ทำ B + เทสต์ (บล็อกเน็ต, ฟอนต์ KaTeX โหลดจากเครื่อง)
+- [x] Recheck code: heading id ใส่ prefix `user-content-` (กันชนกับ id ของแอป), Electron ไม่เปิด origin ของ Studio เองภายนอก, ข้อความรูป `http:` ถูกต้อง
+- [x] บั๊กที่เจอระหว่างทำ: `issues/011` (สารบัญหัวข้อท้ายไฟล์), `issues/012` (legacy Trash race ที่ทำให้ `studio-files` ล้มเป็นบางครั้ง)
+- [x] ผลล่าสุด: `ui:check` exit 0, `npm test` 80/80 exit 0, Electron smoke 5 ตัว exit 0 และไม่มี console error, `render.mjs check` skillz-promo / sword-of-coming-s2 ได้ layout OK, chunk `MarkdownView` 615.9 kB (lazy), `index-*.js` 865.0 kB (ไม่มี markdown/KaTeX/hljs ใน main — ตรวจด้วย sourcemap)
+- [x] ไม่ commit/push จนผู้ใช้สั่ง — ผู้ใช้สั่ง commit + push เมื่อ 2026-10-11 (branch `upgrade-feature-and-engine`)
+- [x] ปิดงานที่ค้าง (2026-10-11):
+  - ลิงก์ `other.md#หัวข้อ` เปิดแท็บแล้วเลื่อนไปหัวข้อนั้น (store `mdAnchor`; ใช้ได้จากทั้ง Code และ Library)
+  - สารบัญตอนจอแคบ: ≤1100px เป็นคอลัมน์ขวากว้าง 200px, ≤850px อยู่ใต้เนื้อหา (`issues/014`)
+  - `Ctrl+F` ค้นหาในพรีวิว ใช้ได้ทั้งในเบราว์เซอร์และ Electron: CSS Custom Highlight API ไม่ใช้ IPC, Enter/Shift+Enter เลื่อนไปผลถัดไป/ก่อนหน้า, Esc ปิด ถ้าโฟกัสอยู่ใน Monaco ยังใช้ find ของ Monaco
+  - `CONSOLE_ERR` ใน Electron: หาสาเหตุเจอและแก้แล้ว ระหว่างนั้นเจอบั๊กพรีวิวไม่แสดงรูปจาก `brand/` และ `voice.js` โหลดไม่ขึ้น (`issues/013`)
+  - highlight.js: ผู้ใช้ตัดสินใจ**คงชุด common** ไว้ (ไม่เปลี่ยน dependency)
+- [x] ฟอนต์ offline (ผู้ใช้อนุมัติ `npm pack @fontsource/…` และเลือกเก็บ CJK ครบทุกชิ้น): `fonts/<name>.css` + woff2 + LICENSE (OFL-1.1) ราว 5.4 MB, 8 โปรเจกต์เลิกใช้ Google Fonts, server เสิร์ฟ `/fonts/` ได้เฉพาะ css/woff2, workspace-seed รวม `fonts/`, skill `make-video` และ README อัปเดตแล้ว (`issues/015`)
+  - เทียบ stills 66 เฟรม ก่อน (ต่อเน็ต) / หลัง (บล็อก Google Fonts): ตรงกันทุก pixel 63 เฟรม อีก 3 เฟรมต่าง ≤0.004% ที่ขอบตัวอักษร มองด้วยตาไม่เห็นความต่าง → MP4 เดิมไม่ต้อง render ใหม่
+- [x] three.js offline สำหรับ `mochi-monday-3d` (ผู้ใช้อนุมัติ `npm pack three@0.170.0` และเลือกทาง A): bundle IIFE `libs/three/three-0.170.0.js` (three + RoundedBoxGeometry, 684.7 kB) ด้วย rolldown ที่มีใน repo เพราะ Chrome บล็อก ES module ในเครื่องผ่าน `file://`; stills ตอนบล็อกเน็ตทั้งหมดตรงกับตอนใช้ CDN ทุก pixel; README มีหัวข้อ "ฟอนต์และไลบรารี offline (ผู้ใช้ต้องอัปเดตเอง)" — **ไม่มีระบบอัปเดตอัตโนมัติ** ขั้นตอนอยู่ใน `libs/three/README.md` (`issues/016`)
+- ข้อจำกัดที่รู้: ค้นหาเจอเฉพาะคำที่อยู่ใน text node เดียวกัน (ถ้าวลีถูกตัดด้วย **ตัวหนา** จะหาไม่เจอ); `hasComposition` อ่านจาก `/api/projects` ครั้งล่าสุด ถ้าเพิ่ม `composition.json` ภายหลังจะเห็นเมื่อรายการโปรเจกต์รีเฟรช; ในเบราว์เซอร์ `Ctrl+F` บนหน้า Code ตอนเปิดพรีวิว md จะใช้ตัวค้นหาของ Studio แทนของ Chrome
+
+## 9. บันทึกการอัปเดตและอัปเกรด (ไว้ดูย้อนหลังก่อนอัปเดตครั้งถัดไป)
+
+### 2026-10-11
+
+**Package ใหม่ใน `package.json`** (`--save-exact`, `dependencies`)
+| package | รุ่น | ใช้ทำอะไร | หมายเหตุ |
+|---|---|---|---|
+| `rehype-highlight` | 7.0.2 | สีโค้ดในพรีวิว Markdown | ดึง `lowlight@3.3.0` / `highlight.js@11.11.2` (ชุด common ~37 ภาษา; ผู้ใช้เลือกไม่ลดเหลือ 8 ภาษา) |
+| `remark-math` | 6.0.0 | `$…$` / `$$…$$` | `unified@11.0.5` รุ่นเดียว (deduped) |
+| `rehype-katex` | 7.0.1 | render สูตร | ดึง `katex@0.16.47`; CSS + ฟอนต์ KaTeX bundle มากับแอป (offline) |
+| `remark-breaks` | 4.0.0 | ปุ่ม Line breaks (ปิดเป็นค่าเริ่ม) | |
+
+**ไฟล์ที่เก็บในเครื่องแบบ vendored — ไม่อัปเดตอัตโนมัติ** (ไม่ใช่ npm dependency; `npm install/update` ไม่แตะ) ดู README หัวข้อ "ฟอนต์และไลบรารี offline"
+| ของ | รุ่น / ที่มา | ที่อยู่ | วิธีอัปเดต |
+|---|---|---|---|
+| ฟอนต์ Mali, Ma Shan Zheng, Dela Gothic One, Kanit, Rye, Prompt, JetBrains Mono | @fontsource 5.3.0 (Ma Shan Zheng 5.3.1), OFL-1.1, woff2 เฉพาะ weight ที่ใช้, CJK ครบทุกชิ้น (~5.4 MB) | `fonts/` | `npm pack` → คัด woff2 + LICENSE → `fonts/<ชื่อ>.css` (`issues/015`) |
+| three.js + RoundedBoxGeometry | three@0.170.0 (MIT), bundle IIFE `window.THREE` ด้วย rolldown 1.2.13, 684 672 bytes | `libs/three/` | ขั้นตอนใน `libs/three/README.md` (`issues/016`) |
+
+**ฟีเจอร์ / พฤติกรรมที่เปลี่ยน**
+- Code page: Markdown Source / Split / Preview (`Ctrl+Shift+V`), สารบัญ, front matter, callout, ลิงก์ (`other.md#หัวข้อ` เลื่อนไปหัวข้อ), รูปจาก `source/` `brand/`, `Ctrl+F` ค้นหาในพรีวิว, Library พรีวิว `.md` — `MarkdownView.tsx`, `lib/markdown.ts`
+- `studio.mjs`: `<base>` แทรกหลัง `<head>`; static เสิร์ฟรูปใน `projects/<p>/brand/` (เฉพาะรูป; เสียง/เอกสารยัง 403), `/fonts/*.css|woff2`, `/libs/<lib>/*.js`; `/api/projects` มี `hasComposition` (`issues/013`)
+- `electron/main.cjs`: เปิดลิงก์ `http(s)://` ภายนอก (ยกเว้น origin ของ Studio เอง); ปิด server ที่ `will-quit`
+- `studio/index.html` (legacy): แก้ race ลบไฟล์แล้วกด Trash (`issues/012`)
+- 8 โปรเจกต์เลิกใช้ Google Fonts; `mochi-monday-3d` เลิกใช้ jsdelivr — stills ก่อน/หลังตรงกัน (MP4 เดิมไม่ต้อง render ใหม่)
+- `package.json` workspace-seed (ตัวติดตั้ง) รวม `fonts/**/*`, `libs/**/*`
+
+**ผลทดสอบ ณ วันนี้**: `ui:check` exit 0, `npm test` 80/80, Electron smoke 5 ตัว (ไม่มี console error), `render.mjs check` skillz-promo / sword-of-coming-s2 / mochi-monday-3d = layout OK; `index-*.js` 865.0 kB, chunk `MarkdownView` 615.9 kB (lazy)
+
+**ก่อนอัปเดตครั้งถัดไป ให้เช็ก**
+- `npm view <package> version` แล้วอ่าน CHANGELOG ของ 4 package ข้างบน; หลังอัปเดตเช็ก `npm ls unified katex` ว่ายังรุ่นเดียว
+- `rehype-katex` อัปเดต → `katex` รุ่นใหม่มาด้วย; CSS/ฟอนต์มาจาก `katex/dist` อัตโนมัติ ตรวจด้วยเทสต์บล็อกเน็ต (`tests/react-markdown.test.mjs` part B)
+- ฟอนต์ / three.js: ต้องทำมือและขออนุญาตก่อนดาวน์โหลด; เทียบ stills ก่อน/หลังทุกครั้ง
+- `node-pty@1.1.0` ยังตรึงรุ่นไว้ (ไม่ได้แตะวันนี้; npm แจ้งว่าข้าม install script ระหว่าง `npm install`)
+
+## 10. งานอื่น ๆ / ที่ยังค้าง
+- เทสต์ล้มเป็นบางครั้ง: `react-shell` "Insert bar … Clear line" ล้ม 1 ครั้งในชุดเต็ม (timeout 8 วิ ที่ขั้นหลังกด Clear line) รันเดี่ยวผ่าน 4/4 และชุดเต็มรอบถัดไปผ่าน 80/80 — ไม่เกี่ยวกับงานรอบนี้ ยังไม่ได้หาสาเหตุ

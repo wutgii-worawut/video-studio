@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { chromium } from 'playwright';
-import { createStudioServer } from '../studio.mjs';
+import { writeFile, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { createStudioServer, ROOT } from '../studio.mjs';
 
 async function startServer() {
   const server = createStudioServer();
@@ -174,5 +176,56 @@ test('Studio Play plays MP4 audio clock, pauses, seeks, mutes and switches proje
     assert.equal(await page.evaluate(()=>state.audioAvailable), false);
     assert.match(await page.locator('#audio-status').textContent(),/silent preview/);
     assert.deepEqual(errors, []);
+  } finally { await browser?.close(); server.closeAllConnections(); await new Promise(resolve=>server.close(resolve)); }
+});
+
+test('Studio serves brand pictures to the scene preview but keeps other brand files private; <base> precedes head scripts', { timeout: 20000 }, async () => {
+  const { server, url } = await startServer();
+  const name = 'static-' + Date.now() + '.png', picture = join(ROOT, 'projects', 'composition-demo', 'brand', name), audio = picture.replace(/\.png$/, '.mp3');
+  await writeFile(picture, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'));
+  await writeFile(audio, 'not really audio');
+  try {
+    assert.equal((await fetch(url + '/projects/composition-demo/brand/' + name)).status, 200);
+    for (const path of ['/projects/composition-demo/brand/' + name.replace('.png', '.mp3'), '/projects/composition-demo/brand/brand.md'])
+      assert.equal((await fetch(url + path)).status, 403, path);
+    const html = await (await fetch(url + '/api/studio/preview/composition-demo')).text();
+    assert.ok(html.indexOf('<base href=') > -1 && html.indexOf('<base href=') < html.indexOf('<script'), 'base before first script');
+    const items = await (await fetch(url + '/api/projects')).json();
+    assert.equal(items.find(p => p.name === 'composition-demo').hasComposition, true);
+    assert.equal(items.find(p => p.name === 'skillz-promo').hasComposition, false);
+  } finally { await rm(picture, { force: true }); await rm(audio, { force: true }); server.closeAllConnections(); await new Promise(resolve=>server.close(resolve)); }
+});
+
+test('project fonts and three.js are local: no CDN links, /fonts and /libs serve only their files, previews work offline', { timeout: 30000 }, async () => {
+  const { readdir, readFile } = await import('node:fs/promises');
+  for (const name of await readdir(join(ROOT, 'projects'))) {
+    const html = await readFile(join(ROOT, 'projects', name, 'source', 'index.html'), 'utf8').catch(() => '');
+    assert.doesNotMatch(html, /fonts\.(googleapis|gstatic)\.com|cdn\.jsdelivr\.net|unpkg\.com|cdnjs\./, name + ' still loads fonts/libraries from a CDN');
+  }
+  const { server, url } = await startServer();
+  let browser;
+  try {
+    assert.equal((await fetch(url + '/fonts/mali.css')).status, 200);
+    const woff = await fetch(url + '/fonts/mali/mali-thai-700-normal.woff2');
+    assert.equal(woff.status, 200);assert.equal(woff.headers.get('content-type'), 'font/woff2');
+    for (const path of ['/fonts/mali/LICENSE.txt', '/fonts/mali/sub/x.woff2', '/fonts/x.woff2'])
+      assert.equal((await fetch(url + path)).status, 403, path);
+    browser = await chromium.launch({ channel: 'chrome', headless: true });
+    const page = await browser.newPage();
+    const remote = [];
+    await page.route('**/*', route => { const u = route.request().url(); if (u.startsWith(url)) return route.continue(); remote.push(u); return route.abort(); });
+    await page.goto(url + '/api/studio/preview/sword-of-coming-s2');
+    const loaded = await page.evaluate(async () => Promise.all(['700 40px Mali', '40px "Ma Shan Zheng"'].map(async f => (await document.fonts.load(f, '剑来ไทย')).map(x => x.status))));
+    assert.deepEqual(loaded.map(s => s.length > 0 && s.every(v => v === 'loaded')), [true, true]);
+    assert.deepEqual(remote.filter(u => /fonts\./.test(u)), []);
+    // three.js comes from libs/ as a classic script, so the 3D project works with no network at all.
+    const lib = await fetch(url + '/libs/three/three-0.170.0.js');
+    assert.equal(lib.status, 200);assert.match(lib.headers.get('content-type'), /javascript/);
+    for (const path of ['/libs/three/LICENSE.txt', '/libs/three/README.md', '/libs/x.js']) assert.equal((await fetch(url + path)).status, 403, path);
+    remote.length = 0;
+    await page.goto(url + '/api/studio/preview/mochi-monday-3d');
+    await page.waitForFunction(() => typeof window.render === 'function');
+    assert.equal(await page.evaluate(() => window.THREE.REVISION + '/' + typeof window.THREE.RoundedBoxGeometry), '170/function');
+    assert.deepEqual(remote, []);
   } finally { await browser?.close(); server.closeAllConnections(); await new Promise(resolve=>server.close(resolve)); }
 });

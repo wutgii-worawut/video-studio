@@ -45,13 +45,20 @@ function permitted(path) {
   if (parts[0] === 'components') return parts.length === 2 && ['registry.json','render.js'].includes(parts[1]);
   if (parts[0] === 'styles') return parts.length >= 3 && parts.length <= 5;
   if (parts[0] === 'sfx') return parts.length === 2 && pAudio(parts[1]);
+  // Shared offline web fonts (fonts/<name>.css + fonts/<name>/*.woff2) used by project HTML.
+  // Vendored browser libraries (libs/<lib>/<file>.js, e.g. three.js); updated by hand, see libs/<lib>/README.md.
+  if (parts[0] === 'libs') return parts.length === 3 && /\.js$/i.test(parts[2]);
+  if (parts[0] === 'fonts') return (parts.length === 2 && /\.css$/i.test(parts[1])) || (parts.length === 3 && /\.woff2$/i.test(parts[2]));
   if (parts[0] === 'projects') {
     if (parts.length < 4) return false;
     try { projectName(parts[1]); } catch { return false; }
+    // brand/ only for pictures the scene HTML draws (../brand/web/…); narration, notes and other brand files stay private.
+    if (parts[2] === 'brand') return parts.length < 9 && pImage(parts.at(-1));
     return (parts[2] === 'source' || parts[2] === 'output') && parts.length < 9;
   }
   return false;
 }
+function pImage(name) { return /\.(png|jpe?g|jpe|jfif|webp|svg|avif|apng|gif|bmp)$/i.test(name); }
 function pAudio(name) { return /\.(mp3|m4a|wav|ogg)$/i.test(name); }
 function sendJson(res, obj, code = 200) {
   const body = JSON.stringify(obj);
@@ -64,7 +71,7 @@ async function safeStaticProjectFile(pathname,file) {
   const parts=pathname.split('/').filter(Boolean);
   const project=parts[1],kind=parts[2];
   projectName(project);
-  if(!['source','output'].includes(kind))throw Error('Invalid project file category');
+  if(!['source','output','brand'].includes(kind))throw Error('Invalid project file category');
   const projectDir=join(ROOT,'projects',project);
   const projectInfo=await lstat(projectDir);
   if(!projectInfo.isDirectory()||projectInfo.isSymbolicLink())
@@ -100,7 +107,8 @@ export async function projects() {
     const source = join(ROOT, 'projects', entry.name, 'source', 'index.html');
     if (!(await stat(source).catch(() => null))) continue;
     const video = await stat(join(ROOT, 'projects', entry.name, 'output', entry.name + '.mp4')).catch(() => null);
-    result.push({ name: entry.name, hasVideo: Boolean(video), videoUpdatedAt: video ? video.mtimeMs : null,
+    const composition = await stat(join(ROOT, 'projects', entry.name, 'source', 'composition.json')).catch(() => null);
+    result.push({ name: entry.name, hasVideo: Boolean(video), hasComposition: Boolean(composition), videoUpdatedAt: video ? video.mtimeMs : null,
       sourceUpdatedAt: await newestFile(join(ROOT, 'projects', entry.name, 'source'), join(ROOT, 'projects', entry.name, 'brand')) });
   }
   return result;
@@ -277,7 +285,8 @@ export function createStudioServer(options={}) {
         const base='/projects/'+encodeURIComponent(project)+'/source/';
         const bridge='<script src="/studio/preview-bridge.js"></script>';
         const baseTag='<base href="'+base+'">';
-        html=html.replace(/<\/head>/i,baseTag+'</head>');
+        // <base> must come before any relative URL in <head> (fx.js, voice.js …), so insert it right after <head>.
+        html=/<head(\s[^>]*)?>/i.test(html)?html.replace(/<head(\s[^>]*)?>/i,m=>m+baseTag):baseTag+html;
         html=html.replace(/<\/body>/i,bridge+'</body>');
         res.writeHead(200,{'Content-Type':'text/html; charset=utf-8',
           'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',

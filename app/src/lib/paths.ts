@@ -10,3 +10,11 @@ export function workspacePath(project:string,file:FileEntry){
 const DOT:Record<string,string>={html:'#F07A6A',htm:'#F07A6A',js:'#E8C66A',mjs:'#E8C66A',json:'#6EA8FE',css:'#C9B9F5'};
 export const extColor=(name:string)=>DOT[name.split('.').at(-1)?.toLowerCase()||'']||'#B4B7BF';
 export const relPath=(file:FileEntry)=>workspacePath('_',file).replace(/^projects\/_\//,'');
+// Find the listed file a workspace path points at (Code/Library lists are keyed by group).
+export function findEntry(lists:Record<string,FileEntry[]>,project:string,target:string){
+ for(const [group,files] of Object.entries(lists)){
+  const file=files.find(f=>workspacePath(project,f)===target);
+  if(file)return {group,file};
+ }
+ return null;
+}

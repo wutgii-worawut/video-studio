@@ -28,6 +28,8 @@ lib/fx.js                  คลังลูกเล่น: ตัวหนั
 sfx/                       เสียงเอฟเฟกต์ในตัว whoosh tick pop impact ding (สร้างใหม่: node sfx/make-sfx.mjs)
 issues/                    บันทึกปัญหา สาเหตุ วิธีแก้ (1 ปัญหา = 1 ไฟล์ มี tags)
 models/                    โมเดล Whisper สำหรับถอดเสียงพากย์ (ไม่เข้า git)
+libs/                      ไลบรารีฝั่งเบราว์เซอร์แบบ offline เช่น libs/three/ (ไม่อัปเดตอัตโนมัติ — ดู "ฟอนต์และไลบรารี offline")
+fonts/                     ฟอนต์ offline ที่ทุกโปรเจกต์ใช้ร่วมกัน (@fontsource, OFL-1.1): <link href="../../../fonts/<ชื่อ>.css">
 styles/                    แนวภาพที่ใช้ซ้ำได้ 1 แนว = 1 โฟลเดอร์ (style.md + example.png + โค้ดเฉพาะแนว)
   cute-doodle/             Kawaii Doodle: เส้นสั่น line boil (boil.js) พาสเทล กระดาษลายจุด + มาสคอตโมจิ (mochi.js: ชุดนักดาบ ขยับปากตามเสียง)
   dark-tech/               Dark Tech / Terminal: พื้นมืด แสงฟุ้งนีออน terminal การ์ดคำสั่ง
@@ -70,6 +72,21 @@ projects/
 ```
 
 ต่อท้ายได้: แนวภาพ (`styles/` หรือบรรยายเอง) · ความยาว · ให้โมจิเล่า/แต่งชุด · ขอสคริปต์พากย์ · ข้อห้าม/สิ่งที่อยากเน้น
+
+## ฟอนต์และไลบรารี offline (ผู้ใช้ต้องอัปเดตเอง)
+
+คลิปไม่ต้องต่อเน็ตทั้งตอนพรีวิวและตอน render เพราะฟอนต์และไลบรารีที่ HTML ใช้ถูกเก็บไว้ใน repo แล้ว และ**ใช้ของในเครื่องเสมอ แม้มีเน็ตก็ไม่โหลดจาก CDN** ภาพจึงออกมาเหมือนเดิมทุกครั้ง
+
+| ของ | ที่อยู่ | ใช้ในโปรเจกต์ | วิธีเรียกใน HTML |
+| --- | --- | --- | --- |
+| ฟอนต์ (@fontsource, OFL-1.1) | `fonts/<ชื่อ>.css` + `fonts/<ชื่อ>/*.woff2` | ทุกโปรเจกต์ที่มีฟอนต์เฉพาะ | `<link rel="stylesheet" href="../../../fonts/mali.css">` |
+| three.js 0.170.0 + RoundedBoxGeometry (MIT) | `libs/three/three-0.170.0.js` | mochi-monday-3d | `<script src="../../../libs/three/three-0.170.0.js">` แล้วใช้ `const THREE = window.THREE;` |
+
+**สำคัญ: ไม่มีระบบอัปเดตอัตโนมัติ** ไฟล์เหล่านี้ไม่ได้เป็น npm dependency ทั้ง `npm install` และ `npm update` จึงไม่แตะมัน ถ้าต้องการรุ่นใหม่ ต้องเพิ่ม addon ของ three หรือต้องเพิ่มฟอนต์ใหม่ **ผู้ใช้ต้องสั่งอัปเดตเอง** (ให้ Claude ทำได้ แต่ Claude ต้องขออนุญาตก่อนดาวน์โหลด):
+- three.js / addon: ทำตามขั้นตอนใน [libs/three/README.md](libs/three/README.md) (`npm pack` → bundle ด้วย rolldown เป็น IIFE → เทียบ stills ก่อน/หลัง)
+- ฟอนต์: `npm pack @fontsource/<ชื่อ>@<รุ่น>` แล้วคัดเฉพาะ woff2 ของ weight ที่ใช้ พร้อม LICENSE ไปไว้ใน `fonts/<ชื่อ>/` และเพิ่ม `fonts/<ชื่อ>.css` (ดูตัวอย่างจากไฟล์ที่มีอยู่)
+
+ทำไม three.js ต้องเป็น bundle แทน `three.module.js`: `render.mjs` เปิดโปรเจกต์ผ่าน `file://` ซึ่ง Chrome ไม่ยอมโหลด ES module จากไฟล์ในเครื่อง classic script จึงใช้ได้ทั้งตอน render และในพรีวิวของ Studio
 
 ## คำสั่ง
 

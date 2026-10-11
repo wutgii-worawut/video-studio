@@ -76,11 +76,13 @@ async function start(){
  win=new BrowserWindow({width:1500,height:930,minWidth:780,minHeight:540,backgroundColor:'#0b101a',
   webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
  win.setMenuBarVisibility(false);
- win.webContents.setWindowOpenHandler(({url})=>{if(/^https:\/\//.test(url))void shell.openExternal(url);return {action:'deny'};});
+ // Web links open in the system browser; never the Studio's own origin (e.g. a middle-clicked in-app link).
+ win.webContents.setWindowOpenHandler(({url})=>{if(/^https?:\/\//.test(url)&&!url.startsWith('http://'+host+':'+port+'/'))void shell.openExternal(url);return {action:'deny'};});
  win.webContents.on('will-navigate',(e,url)=>{if(url!=='http://'+host+':'+port+'/')e.preventDefault();});
  win.webContents.on('will-attach-webview',e=>e.preventDefault());
  await win.loadURL('http://'+host+':'+port+'/');
 }
 app.whenReady().then(start).catch(error=>{console.error('Failed to start desktop Studio:',error);app.exit(1);});
 app.on('window-all-closed',()=>app.quit());
-app.on('before-quit',()=>{try{server?.closeAllConnections();server?.close();}catch{}});
+// will-quit runs after every window is closed, so open event streams aren't cut while a page still listens.
+app.on('will-quit',()=>{try{server?.closeAllConnections();server?.close();}catch{}});
